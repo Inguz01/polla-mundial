@@ -6,17 +6,16 @@ __pycache__/
 # Entornos
 .env
 venv/
-.env/
 
-# Streamlit secrets
+# Streamlit
 .streamlit/secrets.toml
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Jupyter
-.ipynb_checkpoints/
-
 # VS Code
 .vscode/
+
+# Credenciales
+data/credentials.json
