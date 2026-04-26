@@ -1,24 +1,10 @@
 import streamlit as st
 import pandas as pd
-
+from utils.dataframe_utils import safe_int
 from database.google_sheets import connect
 from utils.helpers import generar_id
 from utils.premios import calcular_premio_partido
 from utils.data_loader import cargar_todo
-
-
-
-def safe_int(value):
-
-    if value is None:
-        return 0
-
-    try:
-        return int(float(value))
-    except:
-        return 0
-
-
 
 def resultados_page():
 

@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 from utils.data_loader import cargar_todo
-
+from services.calculo_puntos import calcular_puntos
 from utils.dataframe_utils import (
     safe_int,
     asegurar_columnas
@@ -10,32 +10,6 @@ from utils.dataframe_utils import (
 
 
 USUARIO_ACTUAL = "usuario_demo"
-
-
-
-def calcular_puntos(pred_local, pred_visit, real_local, real_visit):
-
-    puntos = 1
-
-    if pred_local == real_local and pred_visit == real_visit:
-
-        return 3
-
-    if (
-
-        (pred_local > pred_visit and real_local > real_visit)
-        or
-        (pred_local < pred_visit and real_local < real_visit)
-        or
-        (pred_local == pred_visit and real_local == real_visit)
-
-    ):
-
-        puntos += 1
-
-    return puntos
-
-
 
 def historial_page():
 
@@ -145,18 +119,14 @@ def historial_page():
     # calcular puntos
 
     df["puntos"] = df.apply(
-
         lambda x: calcular_puntos(
-
             x["goles_local_pred"],
             x["goles_visitante_pred"],
             x["goles_local_real"],
-            x["goles_visitante_real"]
-
+            x["goles_visitante_real"],
+            x.get("participa", 1)  # 👈 CLAVE
         ),
-
         axis=1
-
     )
 
 

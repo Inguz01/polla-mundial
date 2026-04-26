@@ -1,41 +1,10 @@
 import streamlit as st
 import pandas as pd
-
+from services.calculo_puntos import calcular_puntos
 from utils.data_loader import cargar_todo
-
-
-def safe_int(value):
-
-    try:
-        return int(float(value))
-    except:
-        return 0
-
-
-def calcular_puntos(pred_local, pred_visit, real_local, real_visit):
-
-    puntos = 1
-
-    # exacto
-    if pred_local == real_local and pred_visit == real_visit:
-        return 3
-
-    # resultado correcto
-    if (
-        (pred_local > pred_visit and real_local > real_visit)
-        or
-        (pred_local < pred_visit and real_local < real_visit)
-        or
-        (pred_local == pred_visit and real_local == real_visit)
-    ):
-        puntos += 1
-
-    return puntos
-
+from utils.dataframe_utils import safe_int
 
 def ranking_page():
-
-    st.title("🏆 Tabla de posiciones")
 
     data = cargar_todo()
 
@@ -86,7 +55,8 @@ def ranking_page():
             x["goles_local_pred"],
             x["goles_visitante_pred"],
             x["goles_local_real"],
-            x["goles_visitante_real"]
+            x["goles_visitante_real"],
+            x.get("participa", 1)  # 👈 CLAVE
         ),
         axis=1
     )
