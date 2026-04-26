@@ -1,0 +1,9 @@
+APP_NAME = "polla mundial"
+
+ADMIN_EMAIL = "inguz01@gmail.com"
+
+PORCENTAJE_ADMIN = 0.10
+
+PORCENTAJE_DESARROLLADOR = 0.05
+
+MINUTOS_CIERRE = 5
