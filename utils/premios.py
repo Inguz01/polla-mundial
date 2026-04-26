@@ -1,17 +1,22 @@
 import pandas as pd
+
 from utils.config import valor_apuesta_por_fase, porcentaje_admin
 from utils.movimientos import registrar_movimiento
 from utils.data_loader import cargar_todo
+from database.google_sheets import connect
 
 
 def calcular_premio_partido(partido_id):
+
+    # =========================
+    # DATOS GENERALES (cache OK)
+    # =========================
 
     data = cargar_todo()
 
     df_pred = data["predicciones"]
     df_res = data["resultados"]
     df_part = data["partidos"]
-    df_mov = data["movimientos"]
 
     # =========================
     # PARTIDO
@@ -62,23 +67,38 @@ def calcular_premio_partido(partido_id):
     real_visit = int(df_res_part.iloc[0]["goles_visitante"])
 
     # =========================
-    # 🔄 REVERSO (SI YA HABÍA PAGOS)
+    # 🔒 CONSULTA REAL (SIN CACHE)
     # =========================
 
-    pagos_previos = df_mov[
-        (df_mov["referencia"] == f"partido_{partido_id}")
+    db = connect()
+    mov_sheet = db.worksheet("movimientos")
+    movimientos = pd.DataFrame(mov_sheet.get_all_records())
+
+    # =========================
+    # 🔄 REVERSO CONTROLADO
+    # =========================
+
+    pagos_previos = movimientos[
+        (movimientos["referencia"] == f"partido_{partido_id}")
         &
-        (df_mov["tipo"] == "premio")
+        (movimientos["tipo"] == "premio")
     ]
 
-    if len(pagos_previos) > 0:
+    reversos_previos = movimientos[
+        (movimientos["referencia"] == f"partido_{partido_id}")
+        &
+        (movimientos["tipo"] == "reverso_premio")
+    ]
+
+    # 👉 solo reversar una vez
+    if len(pagos_previos) > 0 and len(reversos_previos) == 0:
 
         for _, mov in pagos_previos.iterrows():
 
             registrar_movimiento(
                 mov["usuario_id"],
                 "reverso_premio",
-                f"partido_{partido_id}",   # 👈 misma referencia
+                f"partido_{partido_id}",
                 -float(mov["monto"])
             )
 

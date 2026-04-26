@@ -1,14 +1,23 @@
-from config.settings import (
-    PORCENTAJE_ADMIN,
-    PORCENTAJE_DESARROLLADOR
-)
+from settings import PORCENTAJE_ADMIN
+
 
 def calcular_pozo(total_recaudado):
 
-    admin = total_recaudado * PORCENTAJE_ADMIN
+    # validar entrada
+    try:
+        total = float(total_recaudado)
+    except:
+        total = 0
 
-    desarrollador = total_recaudado * PORCENTAJE_DESARROLLADOR
+    if total < 0:
+        total = 0
 
-    pozo = total_recaudado - admin - desarrollador
+    # cálculo
+    admin = total * PORCENTAJE_ADMIN
+    pozo = total - admin
 
-    return admin, desarrollador, pozo
+    # redondeo (evita decimales raros)
+    admin = round(admin, 2)
+    pozo = round(pozo, 2)
+
+    return admin, pozo

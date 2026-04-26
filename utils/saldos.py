@@ -1,37 +1,18 @@
-import pandas as pd
-
-from database.google_sheets import connect
-
-from utils.dataframe_utils import normalizar_columnas
-
+from utils.data_loader import cargar_todo
 
 
 def saldo_usuario(usuario_id):
 
-    db = connect()
+    data = cargar_todo()
 
-    sheet = db.worksheet("movimientos")
+    df_mov = data["movimientos"]
 
-    data = sheet.get_all_records()
-
-    df = pd.DataFrame(data)
-
-    if len(df) == 0:
-
+    if len(df_mov) == 0:
         return 0
 
+    df_user = df_mov[df_mov["usuario_id"] == usuario_id]
 
-    df = normalizar_columnas(df)
+    if len(df_user) == 0:
+        return 0
 
-
-    df = df[
-
-        df["usuario_id"] == usuario_id
-
-    ]
-
-
-    df["monto"] = df["monto"].astype(float)
-
-
-    return df["monto"].sum()
+    return float(df_mov[df_mov["usuario_id"] == usuario_id]["monto"].sum())

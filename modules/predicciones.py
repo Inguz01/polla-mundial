@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
 
+from utils.validaciones import apuesta_abierta, validar_marcador
 from utils.saldos import saldo_usuario
 from database.google_sheets import connect
 from utils.helpers import generar_id
@@ -22,26 +22,6 @@ def safe_int(value):
         return int(float(value))
     except:
         return 0
-
-
-def partido_abierto(fecha, hora):
-
-    try:
-
-        fecha_hora = datetime.strptime(
-            f"{fecha} {hora}",
-            "%Y-%m-%d %H:%M"
-        )
-
-        limite = fecha_hora - timedelta(minutes=5)
-
-        return datetime.now() < limite
-
-    except:
-
-        return True
-
-
 
 def predicciones_page():
 
@@ -205,11 +185,13 @@ def predicciones_page():
             st.session_state[key_visit] = goles_visit_default
 
 
-        abierto = partido_abierto(
+        abierto = apuesta_abierta(
 
             row["fecha"],
 
-            row["hora"]
+            row["hora"],
+
+            row.get("estado", "programado")
 
         )
 
@@ -337,112 +319,83 @@ def predicciones_page():
 
         for r in resultados:
 
-            partido = df_partidos[df_partidos["id"] == r["partido_id"]].iloc[0]
+            # 🔒 bloquear si partido cerrado
+            if not r["abierto"]:
+                continue
+
+            # 🔒 validar marcador
+            if r["participa"]:
+                if not validar_marcador(r["goles_local"], r["goles_visitante"]):
+                    st.error("Marcador inválido")
+                    st.stop()
+
+            # 🔒 obtener partido seguro
+            partido_df = df_partidos[df_partidos["id"] == r["partido_id"]]
+
+            if len(partido_df) == 0:
+                continue
+
+            partido = partido_df.iloc[0]
             fase = partido["fase"]
 
             fila_existente = None
 
-
             for i, p in enumerate(predicciones_existentes):
 
                 if (
-
                     p["usuario_id"] == USUARIO_ACTUAL
-
                     and str(p["partido_id"]) == str(r["partido_id"])
-
                 ):
-
                     fila_existente = i + 2
-
                     break
 
-
             # ========= PARTICIPA =========
-
-            if r["participa"] and r["abierto"]:
-
+            if r["participa"]:
 
                 if fila_existente:
 
-
                     pred_sheet.update(
-
                         f"D{fila_existente}:G{fila_existente}",
-
                         [[
-
                             int(r["goles_local"]),
-
                             int(r["goles_visitante"]),
-
                             1,
-
                             0
-
                         ]]
-
                     )
-
 
                 else:
 
-
                     pred_sheet.append_row([
-
                         generar_id(),
-
                         USUARIO_ACTUAL,
-
                         r["partido_id"],
-
                         int(r["goles_local"]),
-
                         int(r["goles_visitante"]),
-
                         1,
-
                         0
-
                     ])
 
-
                     registrar_movimiento(
-
                         USUARIO_ACTUAL,
-
                         "apuesta",
-
                         f"partido_{r['partido_id']}",
-
                         -valor_apuesta_por_fase(fase)
-
                     )
-
 
                 guardados += 1
 
-
             # ========= NO PARTICIPA =========
-
-            elif not r["participa"] and fila_existente:
-
+            elif fila_existente:
 
                 pred_sheet.delete_rows(fila_existente)
 
-
                 registrar_movimiento(
-
                     USUARIO_ACTUAL,
-
                     "ajuste_apuesta",
-
                     f"partido_{r['partido_id']}",
-
                     valor_apuesta_por_fase(fase)
-
                 )
-
 
                 eliminados += 1
 

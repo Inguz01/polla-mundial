@@ -1,20 +1,15 @@
 import streamlit as st
-import pandas as pd
 
-from database.google_sheets import connect
+from utils.data_loader import cargar_todo
 
 
 def partidos_page():
 
     st.title("Partidos disponibles")
 
-    db = connect()
+    data = cargar_todo()
 
-    sheet = db.worksheet("partidos")
-
-    data = sheet.get_all_records()
-
-    df = pd.DataFrame(data)
+    df = data["partidos"].copy()
 
     if len(df) == 0:
 
@@ -22,6 +17,6 @@ def partidos_page():
 
         return
 
-    st.dataframe(df)
+    st.dataframe(df, use_container_width=True)
 
     st.write("total partidos:", len(df))

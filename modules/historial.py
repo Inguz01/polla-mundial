@@ -216,19 +216,6 @@ def historial_page():
         if len(mov) > 0:
             df.at[i, "premio"] = mov["monto"].sum()
 
-    for i, row in df.iterrows():
-
-        mov = df_mov[
-            (df_mov["usuario_id"] == USUARIO_ACTUAL)
-            &
-            (df_mov["referencia"] == f"partido_{row['partido_id']}")
-            &
-            (df_mov["tipo"] == "premio")
-        ]
-
-        if len(mov) > 0:
-            df.at[i, "premio"] = float(mov.iloc[0]["monto"])
-
 
     tabla = df[
         [
