@@ -22,6 +22,8 @@ from modules.movimientos import movimientos_page
 from modules.home import home_page
 from modules.resultados_partido import resultados_partido_page
 from utils.data_loader import cargar_todo
+from modules.finanzas import finanzas_page
+from modules.admin_usuarios import admin_usuarios_page
 
 if "usuario" not in st.session_state:
 
@@ -41,11 +43,6 @@ if "data_loaded" not in st.session_state:
 
     st.session_state["data_loaded"] = True
 
-
-# =============================
-# SIMULACIÓN USUARIO ACTUAL
-# luego vendrá desde login
-# =============================
 
 USUARIO_ACTUAL = st.session_state.get("usuario")
 ROL_ACTUAL = st.session_state.get("rol")
@@ -83,9 +80,13 @@ if ROL_ACTUAL == "admin":
 
     menu_opciones.extend([
 
-        "Resultados",
+        "Resultados",   
 
-        "Movimientos"
+        "Movimientos",
+
+        "Finanzas", 
+
+        "Usuarios"
 
     ])
 
@@ -132,6 +133,12 @@ elif menu == "Movimientos":
 
 elif menu == "Premidos por partido":
     resultados_partido_page()
+
+elif menu == "Finanzas":
+    finanzas_page()
+
+elif menu == "Usuarios":
+    admin_usuarios_page()
 
 
 # =============================

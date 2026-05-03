@@ -9,10 +9,6 @@ from utils.movimientos import registrar_movimiento
 from utils.config import valor_apuesta_por_fase
 from utils.data_loader import cargar_todo
 
-
-USUARIO_ACTUAL = "usuario_demo"
-
-
 def safe_int(value):
 
     if value is None:
@@ -29,9 +25,19 @@ def predicciones_page():
 
     # ========= CARGA CENTRALIZADA =========
 
+    usuario_actual = st.session_state.get("usuario")
+
+    if not usuario_actual:
+        st.error("Sesión no válida")
+        st.stop()
+        
     data = cargar_todo()
 
     df_partidos = data["partidos"].copy()
+
+    df_partidos = df_partidos[
+    df_partidos["estado"] == "programado"
+]
 
     df_pred = data["predicciones"].copy()
 
@@ -53,7 +59,7 @@ def predicciones_page():
     # ======================================
 
 
-    saldo = saldo_usuario(USUARIO_ACTUAL)
+    saldo = saldo_usuario(usuario_actual)
 
     if saldo < 0:
 
@@ -77,7 +83,7 @@ def predicciones_page():
 
         df_pred = df_pred[
 
-            df_pred["usuario_id"] == USUARIO_ACTUAL
+            df_pred["usuario_id"] == usuario_actual
 
         ]
 
@@ -348,7 +354,7 @@ def predicciones_page():
             for i, p in enumerate(predicciones_existentes):
 
                 if (
-                    p["usuario_id"] == USUARIO_ACTUAL
+                    p["usuario_id"] == usuario_actual
                     and str(p["partido_id"]) == str(r["partido_id"])
                 ):
                     fila_existente = i + 2
@@ -373,7 +379,7 @@ def predicciones_page():
 
                     pred_sheet.append_row([
                         generar_id(),
-                        USUARIO_ACTUAL,
+                        usuario_actual,
                         r["partido_id"],
                         int(r["goles_local"]),
                         int(r["goles_visitante"]),
@@ -382,7 +388,7 @@ def predicciones_page():
                     ])
 
                     registrar_movimiento(
-                        USUARIO_ACTUAL,
+                        usuario_actual,
                         "apuesta",
                         f"partido_{r['partido_id']}",
                         -valor_apuesta_por_fase(fase)
@@ -396,7 +402,7 @@ def predicciones_page():
                 pred_sheet.delete_rows(fila_existente)
 
                 registrar_movimiento(
-                    USUARIO_ACTUAL,
+                    usuario_actual,
                     "ajuste_apuesta",
                     f"partido_{r['partido_id']}",
                     valor_apuesta_por_fase(fase)

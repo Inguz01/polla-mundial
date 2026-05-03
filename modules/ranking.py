@@ -55,25 +55,37 @@ def ranking_page():
     # PUNTOS
     # =========================
 
-    df["puntos"] = df.apply(
-        lambda x: calcular_puntos(
-            x["goles_local_pred"],
-            x["goles_visitante_pred"],
-            x["goles_local_real"],
-            x["goles_visitante_real"],
-            x.get("participa", 1)
-        ),
-        axis=1
-    )
+    def calcular_si_terminado(row):
+        if pd.isna(row["goles_local_real"]) or pd.isna(row["goles_visitante_real"]):
+            return 0
+
+        return calcular_puntos(
+            row["goles_local_pred"],
+            row["goles_visitante_pred"],
+            row["goles_local_real"],
+            row["goles_visitante_real"],
+            row.get("participa", 1)
+        )
+
+    df["puntos"] = df.apply(calcular_si_terminado, axis=1)
 
     # =========================
     # EXACTOS
     # =========================
 
-    df["exacto"] = (
-        (df["goles_local_pred"] == df["goles_local_real"]) &
-        (df["goles_visitante_pred"] == df["goles_visitante_real"])
-    ).astype(int)
+    def calcular_si_terminado(row):
+        if pd.isna(row["goles_local_real"]) or pd.isna(row["goles_visitante_real"]):
+            return 0
+
+        return calcular_puntos(
+            row["goles_local_pred"],
+            row["goles_visitante_pred"],
+            row["goles_local_real"],
+            row["goles_visitante_real"],
+            row.get("participa", 1)
+        )
+
+    df["puntos"] = df.apply(calcular_si_terminado, axis=1)
 
     # =========================
     # AGRUPAR

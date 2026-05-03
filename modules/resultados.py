@@ -24,6 +24,19 @@ def resultados_page():
 
     df_result = data["resultados"].copy()
 
+    # 🔒 asegurar estructura SIEMPRE (aunque esté vacío)
+    from utils.dataframe_utils import asegurar_columnas
+
+    df_result = asegurar_columnas(
+        df_result,
+        ["partido_id", "goles_local", "goles_visitante"]
+    )
+
+    # 🔥 asegurar tipos correctos
+    df_result["partido_id"] = df_result["partido_id"].astype(str)
+    df_result["goles_local"] = df_result["goles_local"].apply(safe_int)
+    df_result["goles_visitante"] = df_result["goles_visitante"].apply(safe_int)
+
     # ==============================
 
 
@@ -64,7 +77,59 @@ def resultados_page():
 
     st.divider()
 
+    st.subheader("Recalcular partido")
 
+    # crear label 
+    df_partidos["label"] = (
+        df_partidos["equipo_local"] + " vs " +
+        df_partidos["equipo_visitante"] +
+        " (ID: " + df_partidos["id"].astype(str) + ")"
+    )
+
+    # mapa label → id
+    mapa_partidos = dict(zip(df_partidos["label"], df_partidos["id"]))
+
+    # select 
+    label_sel = st.selectbox(
+        "Selecciona partido a recalcular",
+        list(mapa_partidos.keys())
+    )
+
+    # recuperar id real
+    partido_recalc = mapa_partidos[label_sel]
+
+    if st.button("Recalcular"):
+
+        df_res_part = df_result[
+            df_result["partido_id"] == str(partido_recalc)
+        ]
+
+        if len(df_res_part) == 0:
+            st.warning("Este partido no tiene resultado registrado")
+            st.stop()
+
+        resultado = calcular_premio_partido(partido_recalc)
+
+        if resultado:
+
+            if resultado["tipo"] == "repartido":
+
+                st.success(
+                    f"🔁 Recalculado → "
+                    f"{resultado['ganadores']} ganadores | "
+                    f"${resultado['premio']:,.0f} cada uno"
+                )
+
+            else:
+
+                st.warning(
+                    f"🔁 Recalculado sin ganadores → "
+                    f"${resultado['pozo']:,.0f} acumulado"
+                )
+
+        else:
+
+            st.error("No se pudo recalcular")
 
     for _, row in df_partidos.iterrows():
 
@@ -209,6 +274,18 @@ def resultados_page():
 
         for r in resultados:
 
+            partido_df = df_partidos[df_partidos["id"] == r["partido_id"]]
+
+            if len(partido_df) == 0:
+                continue
+
+            partido = partido_df.iloc[0]
+
+            # 🔒 bloquear si ya está liquidado
+            if partido.get("estado") == "liquidado":
+                st.warning(f"Partido {r['partido_id']} ya fue liquidado")
+                continue
+
 
             fila_existente = None
 
@@ -264,6 +341,16 @@ def resultados_page():
 
 
             resultado_financiero = calcular_premio_partido(r["partido_id"])
+
+            # 🔥 marcar partido como liquidado
+            sheet_partidos = db.worksheet("partidos")
+
+            fila_partido = df_partidos[
+                df_partidos["id"] == r["partido_id"]
+            ].index[0] + 2
+
+            # ⚠️ ajusta la columna si no es I
+            sheet_partidos.update(f"I{fila_partido}", [["liquidado"]])
 
             if resultado_financiero:
 

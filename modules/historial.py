@@ -8,13 +8,15 @@ from utils.dataframe_utils import (
     asegurar_columnas
 )
 
-
-USUARIO_ACTUAL = "usuario_demo"
-
 def historial_page():
 
     st.title("Mi historial de apuestas")
 
+    usuario_actual = st.session_state.get("usuario")
+
+    if not usuario_actual:
+        st.error("Sesión no válida")
+        st.stop()
 
     # ===== carga centralizada =====
 
@@ -41,7 +43,7 @@ def historial_page():
 
     df_pred = df_pred[
 
-        df_pred["usuario_id"] == USUARIO_ACTUAL
+        df_pred["usuario_id"] == usuario_actual
 
     ]
 
@@ -121,16 +123,19 @@ def historial_page():
 
     # calcular puntos
 
-    df["puntos"] = df.apply(
-        lambda x: calcular_puntos(
-            x["goles_local_pred"],
-            x["goles_visitante_pred"],
-            x["goles_local_real"],
-            x["goles_visitante_real"],
-            x.get("participa", 1)  # 👈 CLAVE
-        ),
-        axis=1
-    )
+    def calcular_si_terminado(row):
+        if pd.isna(row["goles_local_real"]) or pd.isna(row["goles_visitante_real"]):
+            return 0
+
+        return calcular_puntos(
+            row["goles_local_pred"],
+            row["goles_visitante_pred"],
+            row["goles_local_real"],
+            row["goles_visitante_real"],
+            row.get("participa", 1)
+        )
+
+    df["puntos"] = df.apply(calcular_si_terminado, axis=1)
 
 
     # formato tabla
@@ -179,7 +184,7 @@ def historial_page():
     for i, row in df.iterrows():
 
         mov = df_mov[
-            (df_mov["usuario_id"] == USUARIO_ACTUAL)
+            (df_mov["usuario_id"] == usuario_actual)
             &
             (df_mov["referencia"] == f"partido_{row['partido_id']}")
             &
