@@ -1,6 +1,5 @@
 import streamlit as st
 from utils.data_loader import cargar_todo
-from utils.dataframe_utils import normalizar_columnas
 from utils.security import verificar_password
 
 
@@ -13,45 +12,84 @@ def login_page():
 
     if st.button("Ingresar"):
 
-        # 🔥 validar input vacío
+        # =========================
+        # VALIDACIÓN INPUT
+        # =========================
+
         if usuario.strip() == "" or password.strip() == "":
             st.warning("Ingresa usuario y contraseña")
             return
 
+        # =========================
+        # CARGA DATOS
+        # =========================
+
         data = cargar_todo()
-        df_users = data["usuarios"]
+        df_users = data.get("usuarios")
 
-        df_users = normalizar_columnas(df_users)
-
-        if len(df_users) == 0:
+        if df_users is None or len(df_users) == 0:
             st.error("No hay usuarios registrados")
             return
 
-        if "usuario_id" not in df_users.columns:
-            st.error(f"Columnas detectadas: {list(df_users.columns)}")
-            return
+        # =========================
+        # 🔥 LIMPIEZA SEGURA COLUMNAS (SIN ROMPER DATA)
+        # =========================
 
-        # 🔥 limpiar datos SIEMPRE
+        df_users.columns = [str(c).strip().lower() for c in df_users.columns]
+
+        # DEBUG TEMPORAL (puedes borrar luego)
+        # st.write(df_users)
+
+        # =========================
+        # VALIDAR ESTRUCTURA
+        # =========================
+
+        columnas_requeridas = ["usuario_id", "password", "rol", "activo"]
+
+        for col in columnas_requeridas:
+            if col not in df_users.columns:
+                st.error(f"Falta columna: {col}")
+                st.write("Columnas detectadas:", df_users.columns)
+                return
+
+        # =========================
+        # LIMPIEZA DE DATOS
+        # =========================
+
         df_users["usuario_id"] = df_users["usuario_id"].astype(str).str.strip()
-        df_users["password"] = df_users["password"].astype(str).str.strip()
-        df_users["activo"] = df_users["activo"].astype(int)
+        df_users["password"] = df_users["password"].astype(str)
+        df_users["rol"] = df_users["rol"].astype(str).str.strip()
+
+        # ⚠️ cuidado con NaN en activo
+        df_users["activo"] = df_users["activo"].fillna(0).astype(int)
 
         usuario_input = str(usuario).strip()
-        password_input = str(password).strip()
+        password_input = str(password)
 
-        user = df_users[
-            (df_users["usuario_id"] == usuario_input)
-            &
-            (df_users["activo"] == 1)
-        ]
+        # =========================
+        # VALIDAR USUARIO EXISTE
+        # =========================
 
-        if len(user) == 0:
+        user_all = df_users[df_users["usuario_id"] == usuario_input]
+
+        if len(user_all) == 0:
             st.error("Credenciales incorrectas")
             return
 
-        hashed = str(user.iloc[0]["password"]).strip()
+        # =========================
+        # VALIDAR ACTIVO
+        # =========================
 
-        # 🔐 compatibilidad: hash o texto plano
+        if int(user_all.iloc[0]["activo"]) == 0:
+            st.warning("Usuario inactivo")
+            return
+
+        # =========================
+        # VALIDAR PASSWORD
+        # =========================
+
+        hashed = str(user_all.iloc[0]["password"]).strip()
+
         if hashed.startswith("$2b$"):
             if not verificar_password(password_input, hashed):
                 st.error("Credenciales incorrectas")
@@ -61,8 +99,12 @@ def login_page():
                 st.error("Credenciales incorrectas")
                 return
 
-        st.session_state["usuario"] = user.iloc[0]["usuario_id"]
-        st.session_state["rol"] = user.iloc[0]["rol"]
+        # =========================
+        # LOGIN OK
+        # =========================
+
+        st.session_state["usuario"] = user_all.iloc[0]["usuario_id"]
+        st.session_state["rol"] = user_all.iloc[0]["rol"]
 
         st.success("Bienvenido")
         st.rerun()

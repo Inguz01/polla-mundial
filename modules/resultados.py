@@ -261,8 +261,12 @@ def resultados_page():
 
     if st.button("Guardar resultados"):
 
+        try:
+            db = connect()
+        except Exception:
+            st.error("Error de conexión con Google Sheets")
 
-        db = connect()
+            return
 
         sheet = db.worksheet("resultados")
 
@@ -318,6 +322,8 @@ def resultados_page():
 
                 )
 
+            
+
 
             # crear nuevo resultado
 
@@ -339,18 +345,20 @@ def resultados_page():
 
             guardados += 1
 
+            cargar_todo.clear()
 
             resultado_financiero = calcular_premio_partido(r["partido_id"])
 
-            # 🔥 marcar partido como liquidado
+            # marcar partido como liquidado
             sheet_partidos = db.worksheet("partidos")
 
             fila_partido = df_partidos[
                 df_partidos["id"] == r["partido_id"]
             ].index[0] + 2
 
-            # ⚠️ ajusta la columna si no es I
+            
             sheet_partidos.update(f"I{fila_partido}", [["liquidado"]])
+
 
             if resultado_financiero:
 
@@ -368,10 +376,5 @@ def resultados_page():
                         f"⚠️ Partido {r['partido_id']} sin ganadores → "
                         f"${resultado_financiero['pozo']:,.0f} acumulado"
                     )
-
-        # refrescar cache global
-
-        cargar_todo.clear()
-
 
         st.success(f"{guardados} resultados guardados")

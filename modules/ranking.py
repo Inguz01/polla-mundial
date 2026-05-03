@@ -43,6 +43,19 @@ def ranking_page():
     # LIMPIEZA
     # =========================
 
+    # 🔥 asegurar columnas antes de usarlas
+    from utils.dataframe_utils import asegurar_columnas
+
+    df = asegurar_columnas(
+        df,
+        [
+            "goles_local_pred",
+            "goles_visitante_pred",
+            "goles_local_real",
+            "goles_visitante_real"
+        ]
+    )
+
     for col in [
         "goles_local_pred",
         "goles_visitante_pred",
@@ -68,6 +81,16 @@ def ranking_page():
         )
 
     df["puntos"] = df.apply(calcular_si_terminado, axis=1)
+
+    df["exacto"] = df.apply(
+        lambda x: 1 if (
+            pd.notna(x["goles_local_real"]) and
+            pd.notna(x["goles_visitante_real"]) and
+            x["goles_local_pred"] == x["goles_local_real"] and
+            x["goles_visitante_pred"] == x["goles_visitante_real"]
+        ) else 0,
+        axis=1
+    )
 
     # =========================
     # EXACTOS
@@ -120,7 +143,9 @@ def ranking_page():
         how="left"
     )
 
-    df_pred_part["valor"] = df_pred_part["fase"].apply(valor_apuesta_por_fase)
+    df_pred_part["valor"] = df_pred_part["fase"].apply(
+        lambda x: valor_apuesta_por_fase(str(x)) if pd.notna(x) else 0
+    )
 
     total_recaudado = df_pred_part["valor"].sum()
     comision = total_recaudado * porcentaje_admin()

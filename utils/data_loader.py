@@ -15,15 +15,16 @@ def worksheet_to_df(db, sheet_name):
 
         df = pd.DataFrame(data)
 
-        if len(df) > 0:
-
-            df = normalizar_columnas(df)
+        #normalizar columnas
+        df.columns = [str(c).strip().lower() for c in df.columns]
 
         return df
 
-    except:
+    except Exception as e:
 
-        return pd.DataFrame()
+        st.error(f"Error cargando hoja {sheet_name}: {e}")
+
+        return pd.DataFrame()   
 
 
 @st.cache_data(ttl=1800)
