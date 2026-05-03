@@ -8,6 +8,11 @@ from utils.data_loader import cargar_todo
 
 def resultados_page():
 
+    # 🔒 CONTROL DE PERMISOS
+    if st.session_state.get("rol") != "admin":
+        st.error("No tienes permisos para acceder a esta sección")
+        st.stop()
+
     st.title("Registrar resultados reales")
 
 

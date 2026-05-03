@@ -12,17 +12,21 @@ st.set_page_config(
 # =============================
 # IMPORTS
 # =============================
-
+from modules.login import login_page
 from modules.partidos import partidos_page
 from modules.predicciones import predicciones_page
 from modules.resultados import resultados_page
 from modules.ranking import ranking_page
 from modules.historial import historial_page
 from modules.movimientos import movimientos_page
-from modules.dashboard import dashboard_page
 from modules.home import home_page
+from modules.resultados_partido import resultados_partido_page
 from utils.data_loader import cargar_todo
 
+if "usuario" not in st.session_state:
+
+    login_page()
+    st.stop()
 
 # =============================
 # PRECARGA DE DATOS
@@ -43,9 +47,9 @@ if "data_loaded" not in st.session_state:
 # luego vendrá desde login
 # =============================
 
-USUARIO_ACTUAL = "usuario_demo"
+USUARIO_ACTUAL = st.session_state.get("usuario")
+ROL_ACTUAL = st.session_state.get("rol")
 
-ROL_ACTUAL = "admin"
 # valores:
 # admin
 # usuario
@@ -68,7 +72,7 @@ menu_opciones = [
 
     "Tabla posiciones",
 
-    "Dashboard"
+    "Premios por partido"
 
 ]
 
@@ -126,9 +130,8 @@ elif menu == "Movimientos":
 
     movimientos_page()
 
-elif menu == "Dashboard":
-
-    dashboard_page()
+elif menu == "Premidos por partido":
+    resultados_partido_page()
 
 
 # =============================
@@ -140,3 +143,7 @@ st.sidebar.divider()
 st.sidebar.caption(f"Usuario: {USUARIO_ACTUAL}")
 
 st.sidebar.caption(f"Rol: {ROL_ACTUAL}")
+
+if st.sidebar.button("Cerrar sesión"):
+    st.session_state.clear()
+    st.rerun()

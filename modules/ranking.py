@@ -1,50 +1,55 @@
 import streamlit as st
 import pandas as pd
-from services.calculo_puntos import calcular_puntos
+
 from utils.data_loader import cargar_todo
 from utils.dataframe_utils import safe_int
+from services.calculo_puntos import calcular_puntos
+from utils.config import valor_apuesta_por_fase, porcentaje_admin
+
 
 def ranking_page():
+
+    st.title("Tabla de posiciones")
 
     data = cargar_todo()
 
     df_pred = data["predicciones"].copy()
     df_res = data["resultados"].copy()
+    df_part = data["partidos"].copy()
 
     if len(df_pred) == 0:
-        st.warning("No hay predicciones")
-        return
-
-    if len(df_res) == 0:
-        st.warning("Aún no hay resultados registrados")
+        st.info("Aún no hay predicciones")
         return
 
     # =========================
-    # LIMPIEZA
-    # =========================
-
-    df_pred["partido_id"] = df_pred["partido_id"].astype(str)
-    df_res["partido_id"] = df_res["partido_id"].astype(str)
-
-    df_pred["goles_local"] = df_pred["goles_local"].apply(safe_int)
-    df_pred["goles_visitante"] = df_pred["goles_visitante"].apply(safe_int)
-
-    df_res["goles_local"] = df_res["goles_local"].apply(safe_int)
-    df_res["goles_visitante"] = df_res["goles_visitante"].apply(safe_int)
-
-    # =========================
-    # MERGE
+    # JOIN DATOS
     # =========================
 
     df = df_pred.merge(
         df_res,
         on="partido_id",
-        suffixes=("_pred", "_real")
+        suffixes=("_pred", "_real"),
+        how="left"
     )
 
-    if len(df) == 0:
-        st.info("Aún no hay partidos con resultado")
-        return
+    df = df.merge(
+        df_part[["id", "fase"]],
+        left_on="partido_id",
+        right_on="id",
+        how="left"
+    )
+
+    # =========================
+    # LIMPIEZA
+    # =========================
+
+    for col in [
+        "goles_local_pred",
+        "goles_visitante_pred",
+        "goles_local_real",
+        "goles_visitante_real"
+    ]:
+        df[col] = df[col].apply(safe_int)
 
     # =========================
     # PUNTOS
@@ -56,54 +61,65 @@ def ranking_page():
             x["goles_visitante_pred"],
             x["goles_local_real"],
             x["goles_visitante_real"],
-            x.get("participa", 1)  # 👈 CLAVE
+            x.get("participa", 1)
         ),
         axis=1
     )
 
-    # exactos
+    # =========================
+    # EXACTOS
+    # =========================
+
     df["exacto"] = (
-        (df["goles_local_pred"] == df["goles_local_real"])
-        &
+        (df["goles_local_pred"] == df["goles_local_real"]) &
         (df["goles_visitante_pred"] == df["goles_visitante_real"])
     ).astype(int)
 
     # =========================
-    # AGRUPACIÓN
+    # AGRUPAR
     # =========================
 
-    tabla = df.groupby("usuario_id").agg(
-        puntos=("puntos", "sum"),
-        partidos=("partido_id", "count"),
-        exactos=("exacto", "sum")
-    ).reset_index()
+    tabla = df.groupby("usuario_id").agg({
+        "puntos": "sum",
+        "exacto": "sum"
+    }).reset_index()
 
     # =========================
-    # ORDEN (CLAVE)
+    # ORDEN
     # =========================
 
     tabla = tabla.sort_values(
-        by=["puntos", "exactos"],  # desempate
+        by=["puntos", "exacto"],
         ascending=False
     )
 
+    tabla.insert(0, "posicion", range(1, len(tabla) + 1))
+
     # =========================
-    # POSICIÓN
+    # 💰 JACKPOT
     # =========================
 
-    tabla.insert(
-        0,
-        "posicion",
-        range(1, len(tabla) + 1)
+    df_pred_part = df_pred.copy()
+
+    df_pred_part = df_pred_part.merge(
+        df_part[["id", "fase"]],
+        left_on="partido_id",
+        right_on="id",
+        how="left"
     )
 
+    df_pred_part["valor"] = df_pred_part["fase"].apply(valor_apuesta_por_fase)
+
+    total_recaudado = df_pred_part["valor"].sum()
+    comision = total_recaudado * porcentaje_admin()
+    jackpot = total_recaudado - comision
+
+    st.metric("Jackpot acumulado", f"${jackpot:,.0f}")
+
+    st.divider()
+
     # =========================
-    # UI
+    # MOSTRAR
     # =========================
 
-    st.title("🏆 Ranking Jackpot")
-
-    st.dataframe(
-        tabla,
-        use_container_width=True
-    )
+    st.dataframe(tabla, use_container_width=True)

@@ -43,6 +43,11 @@ def predicciones_page():
             df_equipos["codigo"].str.strip()
         )
     )
+
+        # 🔒 BLOQUEAR ADMIN
+    if st.session_state.get("rol") == "admin":
+        st.warning("Los administradores no pueden realizar predicciones")
+        st.stop()
     
     
     # ======================================

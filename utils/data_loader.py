@@ -36,7 +36,8 @@ def cargar_todo():
     resultados = worksheet_to_df(db, "resultados")
     movimientos = worksheet_to_df(db, "movimientos")
     config = worksheet_to_df(db, "config")
-    equipos = worksheet_to_df(db, "equipos")  # 👈 NUEVO
+    equipos = worksheet_to_df(db, "equipos")
+    usuarios = worksheet_to_df(db, "usuarios")
 
     return {
 
@@ -45,6 +46,5 @@ def cargar_todo():
         "resultados": resultados,
         "movimientos": movimientos,
         "config": config,
-        "equipos": equipos  # 👈 NUEVO
-
-    }
+        "equipos": equipos,
+        "usuarios": usuarios}
