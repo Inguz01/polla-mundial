@@ -315,69 +315,66 @@ def predicciones_page():
 
     if st.button("Guardar predicciones"):
 
-
         db = connect()
-
         pred_sheet = db.worksheet("predicciones")
-
         predicciones_existentes = pred_sheet.get_all_records()
 
+        # Leer movimientos una sola vez para verificar apuestas ya registradas
+        mov_sheet = db.worksheet("movimientos")
+        movimientos_existentes = mov_sheet.get_all_records()
+
+        referencias_pagadas = {
+            m["referencia"]
+            for m in movimientos_existentes
+            if str(m.get("usuario_id", "")) == str(usuario_actual)
+            and m.get("tipo") == "apuesta"
+        }
+
+        # Acumular todas las filas nuevas de predicciones y movimientos
+        nuevas_predicciones = []
+        nuevos_movimientos  = []
+        rows_a_actualizar   = []  # (rango, valores) para predicciones existentes
+        rows_a_eliminar     = []  # filas a borrar (reversas)
 
         guardados = 0
-
         eliminados = 0
-
 
         for r in resultados:
 
-            # 🔒 bloquear si partido cerrado
             if not r["abierto"]:
                 continue
 
-            # 🔒 validar marcador
             if r["participa"]:
                 if not validar_marcador(r["goles_local"], r["goles_visitante"]):
-                    st.error("Marcador inválido")
+                    st.error("Marcador invalido")
                     st.stop()
 
-            # 🔒 obtener partido seguro
             partido_df = df_partidos[df_partidos["id"] == r["partido_id"]]
-
             if len(partido_df) == 0:
                 continue
 
-            partido = partido_df.iloc[0]
-            fase = partido["fase"]
+            fase = partido_df.iloc[0]["fase"]
 
             fila_existente = None
-
             for i, p in enumerate(predicciones_existentes):
-
-                if (
-                    p["usuario_id"] == usuario_actual
-                    and str(p["partido_id"]) == str(r["partido_id"])
-                ):
+                if (str(p.get("usuario_id", "")) == str(usuario_actual)
+                        and str(p.get("partido_id", "")) == str(r["partido_id"])):
                     fila_existente = i + 2
                     break
 
-            # ========= PARTICIPA =========
+            ref = f"partido_{r['partido_id']}"
+
             if r["participa"]:
 
                 if fila_existente:
-
-                    pred_sheet.update(
+                    # Actualizar marcador existente (no genera nuevo movimiento)
+                    rows_a_actualizar.append((
                         f"D{fila_existente}:G{fila_existente}",
-                        [[
-                            int(r["goles_local"]),
-                            int(r["goles_visitante"]),
-                            1,
-                            0
-                        ]]
-                    )
-
+                        [[int(r["goles_local"]), int(r["goles_visitante"]), 1, 0]]
+                    ))
                 else:
-
-                    pred_sheet.append_row([
+                    # Nueva prediccion
+                    nuevas_predicciones.append([
                         generar_id(),
                         usuario_actual,
                         r["partido_id"],
@@ -386,90 +383,55 @@ def predicciones_page():
                         1,
                         0
                     ])
-
-                    data = cargar_todo()
-                    df_mov = data.get("movimientos", pd.DataFrame())
-
-                    # =========================
-                    # NORMALIZAR MOVIMIENTOS
-                    # =========================
-
-                    # si viene vacío o None
-                    if df_mov is None or df_mov.empty:
-                        df_mov = pd.DataFrame(columns=[
-                            "usuario_id",
-                            "tipo",
-                            "referencia",
-                            "monto"
-                        ])
-
-                    # asegurar columnas mínimas
-                    for col in ["usuario_id", "tipo", "referencia"]:
-                        if col not in df_mov.columns:
-                            df_mov[col] = None
-
-                    # compatibilidad con versiones viejas (usuario vs usuario_id)
-                    if "usuario_id" not in df_mov.columns and "usuario" in df_mov.columns:
-                        df_mov["usuario_id"] = df_mov["usuario"]
-
-                    # evitar errores de tipo
-                    df_mov["usuario_id"] = df_mov["usuario_id"].astype(str)
-                    df_mov["referencia"] = df_mov["referencia"].astype(str)
-                        
-                    ya_pago = df_mov[
-                        (df_mov["usuario_id"] == usuario_actual) &
-                        (df_mov["referencia"] == f"partido_{r['partido_id']}") &
-                        (df_mov["tipo"] == "apuesta")
-                    ]
-
-                    if len(ya_pago) == 0:
-
-                        registrar_movimiento(
-                            usuario_actual,
-                            "apuesta",
-                            f"partido_{r['partido_id']}",
-                            -valor_apuesta_por_fase(fase)
-                        )
+                    # Registrar apuesta solo si no existe ya
+                    if ref not in referencias_pagadas:
+                        nuevos_movimientos.append({
+                            "usuario_id": usuario_actual,
+                            "tipo": "apuesta",
+                            "referencia": ref,
+                            "monto": -valor_apuesta_por_fase(fase)
+                        })
 
                 guardados += 1
 
-            # ========= NO PARTICIPA =========
             elif fila_existente:
-
-                pred_sheet.delete_rows(fila_existente)
-
-                registrar_movimiento(
-                    usuario_actual,
-                    "reverso_apuesta",
-                    f"partido_{r['partido_id']}",
-                    valor_apuesta_por_fase(fase)
-                )
-
+                rows_a_eliminar.append((fila_existente, fase, ref))
                 eliminados += 1
 
+        # ── Escribir todo en batch ──────────────────────────────
 
-        # refrescar cache global
+        # 1. Nuevas predicciones en una sola llamada
+        if nuevas_predicciones:
+            pred_sheet.append_rows(nuevas_predicciones, value_input_option="USER_ENTERED")
+
+        # 2. Actualizaciones de marcadores (una llamada por fila, pero solo si cambio)
+        for rango, valores in rows_a_actualizar:
+            pred_sheet.update(rango, valores)
+
+        # 3. Borrar filas de reversas (de abajo a arriba para no desplazar indices)
+        for fila, fase, ref in sorted(rows_a_eliminar, reverse=True):
+            pred_sheet.delete_rows(fila)
+            nuevos_movimientos.append({
+                "usuario_id": usuario_actual,
+                "tipo": "reverso_apuesta",
+                "referencia": ref,
+                "monto": valor_apuesta_por_fase(fase)
+            })
+
+        # 4. Todos los movimientos en una sola llamada
+        if nuevos_movimientos:
+            from utils.movimientos import registrar_movimientos
+            registrar_movimientos(nuevos_movimientos)
 
         cargar_todo.clear()
 
-
         mensajes = []
-
-
         if guardados > 0:
-
             mensajes.append(f"{guardados} guardadas")
-
-
         if eliminados > 0:
-
             mensajes.append(f"{eliminados} eliminadas")
 
-
-        if len(mensajes) > 0:
-
+        if mensajes:
             st.success(" / ".join(mensajes))
-
         else:
-
             st.info("Sin cambios")

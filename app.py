@@ -131,7 +131,7 @@ elif menu == "Movimientos":
 
     movimientos_page()
 
-elif menu == "Premidos por partido":
+elif menu == "Premios por partido":
     resultados_partido_page()
 
 elif menu == "Finanzas":

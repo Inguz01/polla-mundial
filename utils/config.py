@@ -10,8 +10,12 @@ def obtener_config():
     config = {}
 
     for _, row in df.iterrows():
-
-        config[row["clave"]] = float(row["valor"])
+        try:
+            # Soporta tanto "0.1" (punto) como "0,1" (coma colombiana)
+            valor_str = str(row["valor"]).strip().replace(",", ".")
+            config[row["clave"]] = float(valor_str)
+        except (ValueError, TypeError):
+            pass  # clave ignorada si no es número válido
 
     return config
 

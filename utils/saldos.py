@@ -15,4 +15,4 @@ def saldo_usuario(usuario_id):
     if len(df_user) == 0:
         return 0
 
-    return float(df_mov[df_mov["usuario_id"] == usuario_id]["monto"].sum())
+    return float(df_user["monto"].sum())

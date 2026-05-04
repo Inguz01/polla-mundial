@@ -15,95 +15,132 @@ def finanzas_page():
 
     data = cargar_todo()
 
-    df_mov = data["movimientos"].copy()
+    df_mov  = data.get("movimientos", pd.DataFrame()).copy()
+    df_part = data.get("partidos",    pd.DataFrame()).copy()
 
-    if len(df_mov) == 0:
-        st.info("Aún no hay movimientos")
+    # =========================
+    # NORMALIZAR MOVIMIENTOS
+    # =========================
+
+    if df_mov is None or df_mov.empty:
+        df_mov = pd.DataFrame(columns=[
+            "usuario_id", "tipo", "referencia", "monto", "partido_id"
+        ])
+
+    if "usuario_id" not in df_mov.columns and "usuario" in df_mov.columns:
+        df_mov["usuario_id"] = df_mov["usuario"]
+
+    for col in ["usuario_id", "tipo", "monto", "partido_id", "referencia"]:
+        if col not in df_mov.columns:
+            df_mov[col] = None
+
+    df_mov["usuario_id"] = df_mov["usuario_id"].astype(str)
+    df_mov["monto"]      = pd.to_numeric(df_mov["monto"], errors="coerce").fillna(0)
+
+    # =========================
+    # PARTIDOS LIQUIDADOS
+    # =========================
+
+    if df_part is None or df_part.empty:
+        st.info("No hay partidos cargados")
         return
 
-    # =========================
-    # LIMPIEZA
-    # =========================
+    df_part["id"] = df_part["id"].astype(str)
+    partidos_liquidados = df_part[df_part["estado"] == "liquidado"]["id"].tolist()
 
-    df_mov["monto"] = pd.to_numeric(df_mov["monto"], errors="coerce").fillna(0)
+    # Movimientos de partidos ya liquidados (para las métricas del torneo)
+    refs_liquidadas = [f"partido_{pid}" for pid in partidos_liquidados]
 
-    # =========================
-    # 💰 TOTAL RECAUDADO REAL
-    # =========================
-
-    total_recaudado = df_mov[df_mov["tipo"] == "apuesta"]["monto"].abs().sum()
+    df_liq = df_mov[df_mov["referencia"].isin(refs_liquidadas)]
 
     # =========================
-    # 🧾 COMISIÓN REAL
+    # MÉTRICAS DEL TORNEO
     # =========================
 
-    comision = df_mov[df_mov["tipo"] == "comision"]["monto"].sum()
+    # Recaudado: suma de apuestas (negativas para el usuario → valor absoluto)
+    total_recaudado = df_liq[
+        df_liq["tipo"] == "apuesta"
+    ]["monto"].abs().sum()
 
-    # =========================
-    # 💸 PAGOS REALES
-    # =========================
+    # Comisión cobrada por la casa en partidos liquidados
+    comision = df_liq[
+        df_liq["tipo"] == "comision"
+    ]["monto"].sum()
 
-    pagos = df_mov[df_mov["tipo"] == "premio"]["monto"].sum()
+    # Premios pagados a usuarios
+    premios_pagados = df_liq[
+        df_liq["tipo"] == "premio"
+    ]["monto"].sum()
 
-    jackpot_pagado = df_mov[df_mov["tipo"] == "jackpot_pago"]["monto"].sum()
+    jackpot_pagado = df_liq[
+        df_liq["tipo"] == "jackpot_pago"
+    ]["monto"].sum()
 
-    total_pagado = pagos + jackpot_pagado
+    total_pagado = premios_pagados + jackpot_pagado
 
-    # =========================
-    # 💰 JACKPOT REAL
-    # =========================
-
-    jackpot_aporte = df_mov[df_mov["tipo"] == "jackpot_aporte"]["monto"].sum()
-
-    jackpot = jackpot_aporte - jackpot_pagado
-
-    # =========================
-    # 📊 SALDO DE USUARIOS (CLAVE)
-    # =========================
-
-    saldo_usuarios = (
-        df_mov.groupby("usuario")["monto"]
-        .sum()
-        .sort_values(ascending=True)
-        .reset_index()
-    )
-
-    # separar deuda vs saldo
-    saldo_usuarios["estado"] = saldo_usuarios["monto"].apply(
-        lambda x: "Deuda" if x < 0 else "A favor"
+    # Jackpot acumulado (aportes - pagos, sobre TODOS los movimientos)
+    jackpot_actual = (
+        df_mov[df_mov["tipo"] == "jackpot_aporte"]["monto"].sum()
+        - df_mov[df_mov["tipo"] == "jackpot_pago"]["monto"].sum()
     )
 
     # =========================
-    # 📊 DISPLAY
+    # MÉTRICAS DISPLAY
     # =========================
 
     c1, c2 = st.columns(2)
-
-    c1.metric("Total recaudado", f"${total_recaudado:,.0f}")
+    c1.metric("Total recaudado (liquidado)", f"${total_recaudado:,.0f}")
     c2.metric("Comisión (casa)", f"${comision:,.0f}")
 
     c3, c4 = st.columns(2)
-
-    c3.metric("Total pagado", f"${total_pagado:,.0f}")
-    c4.metric("Jackpot actual", f"${jackpot:,.0f}")
+    c3.metric("Premios pagados", f"${total_pagado:,.0f}")
+    c4.metric("Jackpot acumulado", f"${jackpot_actual:,.0f}")
 
     st.divider()
 
     # =========================
-    # 💳 CUENTA CORRIENTE
+    # CUENTA CORRIENTE DE USUARIOS
+    # La cuenta corriente usa TODOS los movimientos (incluyendo apuestas futuras)
+    # Negativo = el usuario nos debe  |  Positivo = le debemos al usuario
     # =========================
 
-    st.subheader("Saldo por usuario")
+    st.subheader("Cuenta corriente por usuario")
 
-    st.dataframe(saldo_usuarios, use_container_width=True)
+    tipos_usuario = ["apuesta", "reverso_apuesta", "premio", "jackpot_pago", "pago", "retiro", "ajuste"]
+
+    df_usuarios = df_mov[df_mov["tipo"].isin(tipos_usuario)]
+
+    if not df_usuarios.empty:
+        saldo_usuarios = (
+            df_usuarios
+            .groupby("usuario_id")["monto"]
+            .sum()
+            .reset_index()
+            .rename(columns={"monto": "saldo"})
+            .sort_values("saldo")
+        )
+        saldo_usuarios["estado"] = saldo_usuarios["saldo"].apply(
+            lambda x: "🔴 Debe" if x < 0 else "🟢 A favor"
+        )
+        st.dataframe(saldo_usuarios, use_container_width=True)
+    else:
+        st.info("No hay movimientos de usuarios aún")
+
+    st.divider()
 
     # =========================
-    # 📋 MOVIMIENTOS
+    # DETALLE DE MOVIMIENTOS
     # =========================
 
-    st.subheader("Movimientos")
+    st.subheader("Todos los movimientos")
+
+    col_mostrar = [c for c in ["fecha", "usuario_id", "tipo", "referencia", "monto"]
+                   if c in df_mov.columns]
 
     st.dataframe(
-        df_mov.sort_values(by="partido_id", ascending=False),
+        df_mov[col_mostrar].sort_values(
+            by="fecha" if "fecha" in df_mov.columns else col_mostrar[0],
+            ascending=False
+        ),
         use_container_width=True
     )
