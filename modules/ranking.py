@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 from utils.data_loader import cargar_todo
-from utils.dataframe_utils import safe_int
+from utils.dataframe_utils import safe_int, asegurar_columnas
 from services.calculo_puntos import calcular_puntos
 from utils.config import valor_apuesta_por_fase, porcentaje_admin
 
@@ -40,15 +40,15 @@ def ranking_page():
     )
 
     # =========================
-    # LIMPIEZA
+    # LIMPIEZA SEGURA
     # =========================
-
-    # 🔥 asegurar columnas antes de usarlas
-    from utils.dataframe_utils import asegurar_columnas
 
     df = asegurar_columnas(
         df,
         [
+            "usuario_id",
+            "partido_id",
+            "participa",
             "goles_local_pred",
             "goles_visitante_pred",
             "goles_local_real",
@@ -60,35 +60,45 @@ def ranking_page():
         "goles_local_pred",
         "goles_visitante_pred",
         "goles_local_real",
-        "goles_visitante_real"
+        "goles_visitante_real",
+        "participa"
     ]:
         df[col] = df[col].apply(safe_int)
+
+    # =========================
+    # 🔥 FILTRAR SOLO FINALIZADOS
+    # =========================
+
+    df_finalizados = df[
+        df["goles_local_real"].notna() &
+        df["goles_visitante_real"].notna()
+    ].copy()
+
+    if len(df_finalizados) == 0:
+        st.info("Aún no hay partidos finalizados")
+        return
+
+    # =========================
+    # 🔥 EL FIX REAL (DUPLICADOS)
+    # =========================
+
+    df_finalizados = df_finalizados.drop_duplicates(
+        subset=["usuario_id", "partido_id"],
+        keep="last"
+    )
 
     # =========================
     # PUNTOS
     # =========================
 
-    def calcular_si_terminado(row):
-        if pd.isna(row["goles_local_real"]) or pd.isna(row["goles_visitante_real"]):
-            return 0
-
-        return calcular_puntos(
-            row["goles_local_pred"],
-            row["goles_visitante_pred"],
-            row["goles_local_real"],
-            row["goles_visitante_real"],
-            row.get("participa", 1)
-        )
-
-    df["puntos"] = df.apply(calcular_si_terminado, axis=1)
-
-    df["exacto"] = df.apply(
-        lambda x: 1 if (
-            pd.notna(x["goles_local_real"]) and
-            pd.notna(x["goles_visitante_real"]) and
-            x["goles_local_pred"] == x["goles_local_real"] and
-            x["goles_visitante_pred"] == x["goles_visitante_real"]
-        ) else 0,
+    df_finalizados["puntos"] = df_finalizados.apply(
+        lambda x: calcular_puntos(
+            x["goles_local_real"],
+            x["goles_visitante_real"],
+            x["goles_local_pred"],
+            x["goles_visitante_pred"],
+            x["participa"]
+        ),
         axis=1
     )
 
@@ -96,28 +106,30 @@ def ranking_page():
     # EXACTOS
     # =========================
 
-    def calcular_si_terminado(row):
-        if pd.isna(row["goles_local_real"]) or pd.isna(row["goles_visitante_real"]):
-            return 0
+    df_finalizados["exacto"] = (
+        (df_finalizados["goles_local_pred"] == df_finalizados["goles_local_real"]) &
+        (df_finalizados["goles_visitante_pred"] == df_finalizados["goles_visitante_real"])
+    ).astype(int)
 
-        return calcular_puntos(
-            row["goles_local_pred"],
-            row["goles_visitante_pred"],
-            row["goles_local_real"],
-            row["goles_visitante_real"],
-            row.get("participa", 1)
-        )
+    # =========================
+    # PARTIDOS JUGADOS
+    # =========================
 
-    df["puntos"] = df.apply(calcular_si_terminado, axis=1)
+    df_finalizados["jugado"] = 1
 
     # =========================
     # AGRUPAR
     # =========================
 
-    tabla = df.groupby("usuario_id").agg({
+    tabla = df_finalizados.groupby("usuario_id").agg({
         "puntos": "sum",
-        "exacto": "sum"
+        "exacto": "sum",
+        "jugado": "sum"
     }).reset_index()
+
+    tabla = tabla.rename(columns={
+        "jugado": "partidos_jugados"
+    })
 
     # =========================
     # ORDEN
@@ -131,12 +143,10 @@ def ranking_page():
     tabla.insert(0, "posicion", range(1, len(tabla) + 1))
 
     # =========================
-    # 💰 JACKPOT
+    # 💰 JACKPOT (básico)
     # =========================
 
-    df_pred_part = df_pred.copy()
-
-    df_pred_part = df_pred_part.merge(
+    df_pred_part = df_pred.merge(
         df_part[["id", "fase"]],
         left_on="partido_id",
         right_on="id",
@@ -158,5 +168,9 @@ def ranking_page():
     # =========================
     # MOSTRAR
     # =========================
+
+    tabla = tabla[
+        ["posicion", "usuario_id", "partidos_jugados", "puntos", "exacto"]
+    ]
 
     st.dataframe(tabla, use_container_width=True)

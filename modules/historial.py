@@ -75,7 +75,7 @@ def historial_page():
     )
 
     # =========================
-    # 🔥 NUEVO: detectar si el partido terminó
+    # detectar si el partido terminó
     # =========================
 
     df["partido_finalizado"] = (
@@ -95,8 +95,10 @@ def historial_page():
     ]:
         df[col] = df[col].apply(safe_int)
 
+    df["participa"] = df["participa"].apply(safe_int)
+
     # =========================
-    # 🔥 PUNTOS SOLO SI TERMINÓ
+    # PUNTOS SOLO SI TERMINÓ
     # =========================
 
     def calcular_si_terminado(row):
@@ -104,11 +106,11 @@ def historial_page():
             return None
 
         return calcular_puntos(
-            row["goles_local_pred"],
-            row["goles_visitante_pred"],
             row["goles_local_real"],
             row["goles_visitante_real"],
-            row.get("participa", 1)
+            row["goles_local_pred"],
+            row["goles_visitante_pred"],
+            row["participa"]
         )
 
     df["puntos"] = df.apply(calcular_si_terminado, axis=1)

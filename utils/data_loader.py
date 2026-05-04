@@ -15,8 +15,11 @@ def worksheet_to_df(db, sheet_name):
 
         df = pd.DataFrame(data)
 
-        #normalizar columnas
+        # normalizar columnas
         df.columns = [str(c).strip().lower() for c in df.columns]
+
+        # corregir nombre de columna con typo en Google Sheets
+        df = df.rename(columns={"goles_visitantes": "goles_visitante"})
 
         return df
 
