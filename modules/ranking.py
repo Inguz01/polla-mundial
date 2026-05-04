@@ -4,7 +4,6 @@ import pandas as pd
 from utils.data_loader import cargar_todo
 from utils.dataframe_utils import safe_int, asegurar_columnas
 from services.calculo_puntos import calcular_puntos
-from utils.config import valor_apuesta_por_fase, porcentaje_admin
 
 
 def ranking_page():
@@ -16,21 +15,42 @@ def ranking_page():
     df_pred = data["predicciones"].copy()
     df_res = data["resultados"].copy()
     df_part = data["partidos"].copy()
+    df_mov = data["movimientos"].copy()
 
-    if len(df_pred) == 0:
+    # =========================
+    # VALIDACIONES INICIALES
+    # =========================
+
+    if df_pred.empty:
         st.info("Aún no hay predicciones")
         return
 
+    if df_res.empty:
+        st.info("Aún no hay resultados registrados")
+        return
+
+    if "partido_id" not in df_pred.columns:
+        st.error("Error en predicciones: falta partido_id")
+        return
+
+    if "partido_id" not in df_res.columns:
+        st.error("Error en resultados: falta partido_id")
+        return
+
     # =========================
-    # JOIN DATOS
+    # JOIN SOLO PARTIDOS FINALIZADOS
     # =========================
 
     df = df_pred.merge(
         df_res,
         on="partido_id",
         suffixes=("_pred", "_real"),
-        how="left"
+        how="inner"  # 🔥 SOLO partidos con resultado
     )
+
+    if df.empty:
+        st.info("Aún no hay partidos finalizados")
+        return
 
     df = df.merge(
         df_part[["id", "fase"]],
@@ -66,32 +86,19 @@ def ranking_page():
         df[col] = df[col].apply(safe_int)
 
     # =========================
-    # 🔥 FILTRAR SOLO FINALIZADOS
+    # ELIMINAR DUPLICADOS
     # =========================
 
-    df_finalizados = df[
-        df["goles_local_real"].notna() &
-        df["goles_visitante_real"].notna()
-    ].copy()
-
-    if len(df_finalizados) == 0:
-        st.info("Aún no hay partidos finalizados")
-        return
-
-    # =========================
-    # 🔥 EL FIX REAL (DUPLICADOS)
-    # =========================
-
-    df_finalizados = df_finalizados.drop_duplicates(
+    df = df.drop_duplicates(
         subset=["usuario_id", "partido_id"],
         keep="last"
     )
 
     # =========================
-    # PUNTOS
+    # CÁLCULO DE PUNTOS
     # =========================
 
-    df_finalizados["puntos"] = df_finalizados.apply(
+    df["puntos"] = df.apply(
         lambda x: calcular_puntos(
             x["goles_local_real"],
             x["goles_visitante_real"],
@@ -106,22 +113,22 @@ def ranking_page():
     # EXACTOS
     # =========================
 
-    df_finalizados["exacto"] = (
-        (df_finalizados["goles_local_pred"] == df_finalizados["goles_local_real"]) &
-        (df_finalizados["goles_visitante_pred"] == df_finalizados["goles_visitante_real"])
+    df["exacto"] = (
+        (df["goles_local_pred"] == df["goles_local_real"]) &
+        (df["goles_visitante_pred"] == df["goles_visitante_real"])
     ).astype(int)
 
     # =========================
     # PARTIDOS JUGADOS
     # =========================
 
-    df_finalizados["jugado"] = 1
+    df["jugado"] = 1
 
     # =========================
-    # AGRUPAR
+    # AGRUPAR POR USUARIO
     # =========================
 
-    tabla = df_finalizados.groupby("usuario_id").agg({
+    tabla = df.groupby("usuario_id").agg({
         "puntos": "sum",
         "exacto": "sum",
         "jugado": "sum"
@@ -132,7 +139,7 @@ def ranking_page():
     })
 
     # =========================
-    # ORDEN
+    # RANKING CORRECTO (EMPATES)
     # =========================
 
     tabla = tabla.sort_values(
@@ -140,33 +147,38 @@ def ranking_page():
         ascending=False
     )
 
-    tabla.insert(0, "posicion", range(1, len(tabla) + 1))
+    tabla["posicion"] = tabla["puntos"].rank(
+        method="dense",
+        ascending=False
+    ).astype(int)
 
-    # =========================
-    # 💰 JACKPOT (básico)
-    # =========================
-
-    df_pred_part = df_pred.merge(
-        df_part[["id", "fase"]],
-        left_on="partido_id",
-        right_on="id",
-        how="left"
+    tabla = tabla.sort_values(
+        by=["posicion", "exacto"],
+        ascending=[True, False]
     )
 
-    df_pred_part["valor"] = df_pred_part["fase"].apply(
-        lambda x: valor_apuesta_por_fase(str(x)) if pd.notna(x) else 0
-    )
+    # =========================
+    # JACKPOT REAL DESDE MOVIMIENTOS
+    # =========================
 
-    total_recaudado = df_pred_part["valor"].sum()
-    comision = total_recaudado * porcentaje_admin()
-    jackpot = total_recaudado - comision
+    if not df_mov.empty:
 
-    st.metric("Jackpot acumulado", f"${jackpot:,.0f}")
+        df_mov["monto"] = pd.to_numeric(df_mov["monto"], errors="coerce").fillna(0)
+
+        jackpot_aporte = df_mov[df_mov["tipo"] == "jackpot_aporte"]["monto"].sum()
+        jackpot_pago = df_mov[df_mov["tipo"] == "jackpot_pago"]["monto"].sum()
+
+        jackpot_total = jackpot_aporte - jackpot_pago
+
+    else:
+        jackpot_total = 0
+
+    st.metric("Jackpot acumulado", f"${jackpot_total:,.0f}")
 
     st.divider()
 
     # =========================
-    # MOSTRAR
+    # MOSTRAR TABLA
     # =========================
 
     tabla = tabla[

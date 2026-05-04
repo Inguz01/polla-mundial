@@ -387,12 +387,49 @@ def predicciones_page():
                         0
                     ])
 
-                    registrar_movimiento(
-                        usuario_actual,
-                        "apuesta",
-                        f"partido_{r['partido_id']}",
-                        -valor_apuesta_por_fase(fase)
-                    )
+                    data = cargar_todo()
+                    df_mov = data.get("movimientos", pd.DataFrame())
+
+                    # =========================
+                    # NORMALIZAR MOVIMIENTOS
+                    # =========================
+
+                    # si viene vacío o None
+                    if df_mov is None or df_mov.empty:
+                        df_mov = pd.DataFrame(columns=[
+                            "usuario_id",
+                            "tipo",
+                            "referencia",
+                            "monto"
+                        ])
+
+                    # asegurar columnas mínimas
+                    for col in ["usuario_id", "tipo", "referencia"]:
+                        if col not in df_mov.columns:
+                            df_mov[col] = None
+
+                    # compatibilidad con versiones viejas (usuario vs usuario_id)
+                    if "usuario_id" not in df_mov.columns and "usuario" in df_mov.columns:
+                        df_mov["usuario_id"] = df_mov["usuario"]
+
+                    # evitar errores de tipo
+                    df_mov["usuario_id"] = df_mov["usuario_id"].astype(str)
+                    df_mov["referencia"] = df_mov["referencia"].astype(str)
+                        
+                    ya_pago = df_mov[
+                        (df_mov["usuario_id"] == usuario_actual) &
+                        (df_mov["referencia"] == f"partido_{r['partido_id']}") &
+                        (df_mov["tipo"] == "apuesta")
+                    ]
+
+                    if len(ya_pago) == 0:
+
+                        registrar_movimiento(
+                            usuario_actual,
+                            "apuesta",
+                            f"partido_{r['partido_id']}",
+                            -valor_apuesta_por_fase(fase)
+                        )
 
                 guardados += 1
 
@@ -403,7 +440,7 @@ def predicciones_page():
 
                 registrar_movimiento(
                     usuario_actual,
-                    "ajuste_apuesta",
+                    "reverso_apuesta",
                     f"partido_{r['partido_id']}",
                     valor_apuesta_por_fase(fase)
                 )

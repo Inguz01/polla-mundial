@@ -4,6 +4,7 @@ import pandas as pd
 from utils.data_loader import cargar_todo
 from utils.dataframe_utils import safe_int
 from utils.config import valor_apuesta_por_fase, porcentaje_admin
+from services.calculo_pozo import liquidar_partido
 
 
 def resultados_partido_page():
@@ -15,6 +16,7 @@ def resultados_partido_page():
     df_pred = data["predicciones"].copy()
     df_res = data["resultados"].copy()
     df_part = data["partidos"].copy()
+    df_mov = data["movimientos"].copy()
 
     if len(df_res) == 0:
         st.info("Aún no hay resultados registrados")
@@ -56,14 +58,14 @@ def resultados_partido_page():
     real_visit = row_partido["goles_visitante"]
 
     # =========================
-    # MOSTRAR RESULTADO
+    # RESULTADO
     # =========================
 
     st.subheader(partido_sel)
     st.write(f"Resultado: {real_local} - {real_visit}")
 
     # =========================
-    # PARTICIPANTES
+    # APUESTAS DEL PARTIDO
     # =========================
 
     df_pred_part = df_pred[
@@ -93,8 +95,6 @@ def resultados_partido_page():
     st.write(f"Comisión: ${comision:,.0f}")
     st.write(f"Pozo a repartir: ${pozo:,.0f}")
 
-    st.divider()
-
     # =========================
     # GANADORES
     # =========================
@@ -108,6 +108,8 @@ def resultados_partido_page():
         (df_pred_part["goles_visitante"] == real_visit)
     ]
 
+    st.divider()
+
     if len(ganadores) > 0:
 
         premio = pozo / len(ganadores)
@@ -115,7 +117,7 @@ def resultados_partido_page():
         st.success(f"{len(ganadores)} ganador(es)")
 
         tabla = ganadores[["usuario_id"]].copy()
-        tabla["premio"] = premio
+        tabla["premio_estimado"] = round(premio, 2)
 
         st.dataframe(tabla, use_container_width=True)
 
@@ -123,3 +125,70 @@ def resultados_partido_page():
 
         st.warning("No hubo ganadores")
         st.info(f"💰 ${pozo:,.0f} se acumula al jackpot")
+
+    # =========================
+    # JACKPOT ACTUAL
+    # =========================
+
+    jackpot_actual = (
+        df_mov[df_mov["tipo"] == "jackpot_aporte"]["monto"].sum()
+        -
+        df_mov[df_mov["tipo"] == "jackpot_pago"]["monto"].sum()
+    )
+
+    st.info(f"Jackpot actual: ${jackpot_actual:,.0f}")
+
+    # =========================
+    # CONTROL DOBLE LIQUIDACIÓN
+    # =========================
+
+    ya_liquidado = df_mov[
+        (df_mov["partido_id"].astype(str) == str(partido_id)) &
+        (df_mov["tipo"] == "comision")
+    ].shape[0] > 0
+
+    st.divider()
+
+    if ya_liquidado:
+        st.warning("⚠️ Este partido ya fue liquidado")
+        return
+
+    # =========================
+    # BOTÓN LIQUIDAR
+    # =========================
+
+    if st.button("💰 Liquidar partido"):
+
+        df_liq = df_pred_part.copy()
+
+        # normalizar columnas para el servicio
+        df_liq["usuario"] = df_liq["usuario_id"]
+        df_liq["valor"] = valor
+        df_liq["prediccion"] = (
+            df_liq["goles_local"].astype(str)
+            + "-"
+            + df_liq["goles_visitante"].astype(str)
+        )
+
+        resultado_real = f"{real_local}-{real_visit}"
+
+        transacciones, jackpot_nuevo = liquidar_partido(
+            df_liq,
+            resultado_real,
+            jackpot_actual
+        )
+
+        # agregar partido_id
+        for t in transacciones:
+            t["partido_id"] = partido_id
+
+        df_nuevos = pd.DataFrame(transacciones)
+
+        df_mov = pd.concat([df_mov, df_nuevos], ignore_index=True)
+
+        # guardar cambios
+        data["movimientos"] = df_mov
+
+        st.success("✅ Partido liquidado correctamente")
+
+        st.rerun()

@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 
 from utils.data_loader import cargar_todo
-from utils.config import valor_apuesta_por_fase, porcentaje_admin
 
 
 def finanzas_page():
@@ -16,54 +15,63 @@ def finanzas_page():
 
     data = cargar_todo()
 
-    df_pred = data["predicciones"].copy()
-    df_part = data["partidos"].copy()
     df_mov = data["movimientos"].copy()
 
-    if len(df_pred) == 0:
-        st.info("Aún no hay datos")
+    if len(df_mov) == 0:
+        st.info("Aún no hay movimientos")
         return
 
     # =========================
-    # 💰 TOTAL RECAUDADO
+    # LIMPIEZA
     # =========================
 
-    df_pred = df_pred.merge(
-        df_part[["id", "fase"]],
-        left_on="partido_id",
-        right_on="id",
-        how="left"
-    )
-
-    df_pred["valor"] = df_pred["fase"].apply(valor_apuesta_por_fase)
-
-    total_recaudado = df_pred["valor"].sum()
+    df_mov["monto"] = pd.to_numeric(df_mov["monto"], errors="coerce").fillna(0)
 
     # =========================
-    # 🧾 COMISIÓN
+    # 💰 TOTAL RECAUDADO REAL
     # =========================
 
-    comision = total_recaudado * porcentaje_admin()
+    total_recaudado = df_mov[df_mov["tipo"] == "apuesta"]["monto"].abs().sum()
 
     # =========================
-    # 💸 PAGOS REALIZADOS
+    # 🧾 COMISIÓN REAL
+    # =========================
+
+    comision = df_mov[df_mov["tipo"] == "comision"]["monto"].sum()
+
+    # =========================
+    # 💸 PAGOS REALES
     # =========================
 
     pagos = df_mov[df_mov["tipo"] == "premio"]["monto"].sum()
 
-    # =========================
-    # 🔁 REVERSOS
-    # =========================
+    jackpot_pagado = df_mov[df_mov["tipo"] == "jackpot_pago"]["monto"].sum()
 
-    reversos = df_mov[df_mov["tipo"] == "reverso_premio"]["monto"].sum()
-
-    total_pagado = pagos + reversos  # reversos son negativos
+    total_pagado = pagos + jackpot_pagado
 
     # =========================
-    # 💰 JACKPOT
+    # 💰 JACKPOT REAL
     # =========================
 
-    jackpot = total_recaudado - comision - total_pagado
+    jackpot_aporte = df_mov[df_mov["tipo"] == "jackpot_aporte"]["monto"].sum()
+
+    jackpot = jackpot_aporte - jackpot_pagado
+
+    # =========================
+    # 📊 SALDO DE USUARIOS (CLAVE)
+    # =========================
+
+    saldo_usuarios = (
+        df_mov.groupby("usuario")["monto"]
+        .sum()
+        .sort_values(ascending=True)
+        .reset_index()
+    )
+
+    # separar deuda vs saldo
+    saldo_usuarios["estado"] = saldo_usuarios["monto"].apply(
+        lambda x: "Deuda" if x < 0 else "A favor"
+    )
 
     # =========================
     # 📊 DISPLAY
@@ -72,7 +80,7 @@ def finanzas_page():
     c1, c2 = st.columns(2)
 
     c1.metric("Total recaudado", f"${total_recaudado:,.0f}")
-    c2.metric("Comisión", f"${comision:,.0f}")
+    c2.metric("Comisión (casa)", f"${comision:,.0f}")
 
     c3, c4 = st.columns(2)
 
@@ -82,9 +90,20 @@ def finanzas_page():
     st.divider()
 
     # =========================
-    # 📋 DETALLE
+    # 💳 CUENTA CORRIENTE
+    # =========================
+
+    st.subheader("Saldo por usuario")
+
+    st.dataframe(saldo_usuarios, use_container_width=True)
+
+    # =========================
+    # 📋 MOVIMIENTOS
     # =========================
 
     st.subheader("Movimientos")
 
-    st.dataframe(df_mov.sort_values(by="id", ascending=False), use_container_width=True)
+    st.dataframe(
+        df_mov.sort_values(by="partido_id", ascending=False),
+        use_container_width=True
+    )
