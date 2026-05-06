@@ -144,7 +144,25 @@ def historial_page():
 
     df["premio"] = None
 
-    df_mov = data["movimientos"]
+    df_mov = data.get("movimientos", pd.DataFrame())
+
+    # si está vacío → crear estructura válida
+    if df_mov is None or df_mov.empty:
+        df_mov = pd.DataFrame(columns=[
+            "usuario_id",
+            "tipo",
+            "referencia",
+            "monto"
+        ])
+
+    # compatibilidad (por si hay datos viejos)
+    if "usuario_id" not in df_mov.columns and "usuario" in df_mov.columns:
+        df_mov["usuario_id"] = df_mov["usuario"]
+
+    # asegurar columnas mínimas
+    for col in ["usuario_id", "tipo", "referencia", "monto"]:
+        if col not in df_mov.columns:
+            df_mov[col] = None
 
     for i, row in df.iterrows():
 

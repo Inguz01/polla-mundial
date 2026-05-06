@@ -3,7 +3,7 @@ import pandas as pd
 from utils.dataframe_utils import safe_int
 from database.google_sheets import connect
 from utils.helpers import generar_id
-from utils.premios import calcular_premio_partido
+#from utils.premios import calcular_premio_partido
 from utils.data_loader import cargar_todo
 
 def resultados_page():
@@ -97,39 +97,6 @@ def resultados_page():
 
     # recuperar id real
     partido_recalc = mapa_partidos[label_sel]
-
-    if st.button("Recalcular"):
-
-        df_res_part = df_result[
-            df_result["partido_id"] == str(partido_recalc)
-        ]
-
-        if len(df_res_part) == 0:
-            st.warning("Este partido no tiene resultado registrado")
-            st.stop()
-
-        resultado = calcular_premio_partido(partido_recalc)
-
-        if resultado:
-
-            if resultado["tipo"] == "repartido":
-
-                st.success(
-                    f"🔁 Recalculado → "
-                    f"{resultado['ganadores']} ganadores | "
-                    f"${resultado['premio']:,.0f} cada uno"
-                )
-
-            else:
-
-                st.warning(
-                    f"🔁 Recalculado sin ganadores → "
-                    f"${resultado['pozo']:,.0f} acumulado"
-                )
-
-        else:
-
-            st.error("No se pudo recalcular")
 
     for _, row in df_partidos.iterrows():
 
@@ -347,7 +314,7 @@ def resultados_page():
 
             cargar_todo.clear()
 
-            resultado_financiero = calcular_premio_partido(r["partido_id"])
+            #resultado_financiero = calcular_premio_partido(r["partido_id"])
 
             # marcar partido como liquidado
             sheet_partidos = db.worksheet("partidos")
@@ -358,23 +325,5 @@ def resultados_page():
 
             
             sheet_partidos.update(f"I{fila_partido}", [["liquidado"]])
-
-
-            if resultado_financiero:
-
-                if resultado_financiero["tipo"] == "repartido":
-
-                    st.success(
-                        f"💰 Partido {r['partido_id']} → "
-                        f"{resultado_financiero['ganadores']} ganadores | "
-                        f"${resultado_financiero['premio']:,.0f} cada uno"
-                    )
-
-                else:
-
-                    st.warning(
-                        f"⚠️ Partido {r['partido_id']} sin ganadores → "
-                        f"${resultado_financiero['pozo']:,.0f} acumulado"
-                    )
 
         st.success(f"{guardados} resultados guardados")

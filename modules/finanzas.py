@@ -144,3 +144,22 @@ def finanzas_page():
         ),
         use_container_width=True
     )
+
+def reversar_partido(df_mov, partido_id):
+
+    df_partido = df_mov[
+        df_mov["referencia"] == f"partido_{partido_id}"
+    ]
+
+    transacciones = []
+
+    for _, mov in df_partido.iterrows():
+
+        transacciones.append({
+            "usuario_id": mov["usuario_id"],
+            "tipo": "reverso",
+            "referencia": f"reverso_partido_{partido_id}",
+            "monto": -float(mov["monto"])
+        })
+
+    return transacciones

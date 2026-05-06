@@ -5,8 +5,6 @@ from utils.validaciones import apuesta_abierta, validar_marcador
 from utils.saldos import saldo_usuario
 from database.google_sheets import connect
 from utils.helpers import generar_id
-from utils.movimientos import registrar_movimiento
-from utils.config import valor_apuesta_por_fase
 from utils.data_loader import cargar_todo
 
 def safe_int(value):
@@ -319,22 +317,9 @@ def predicciones_page():
         pred_sheet = db.worksheet("predicciones")
         predicciones_existentes = pred_sheet.get_all_records()
 
-        # Leer movimientos una sola vez para verificar apuestas ya registradas
-        mov_sheet = db.worksheet("movimientos")
-        movimientos_existentes = mov_sheet.get_all_records()
-
-        referencias_pagadas = {
-            m["referencia"]
-            for m in movimientos_existentes
-            if str(m.get("usuario_id", "")) == str(usuario_actual)
-            and m.get("tipo") == "apuesta"
-        }
-
         # Acumular todas las filas nuevas de predicciones y movimientos
         nuevas_predicciones = []
-        nuevos_movimientos  = []
         rows_a_actualizar   = []  # (rango, valores) para predicciones existentes
-        rows_a_eliminar     = []  # filas a borrar (reversas)
 
         guardados = 0
         eliminados = 0
@@ -353,7 +338,6 @@ def predicciones_page():
             if len(partido_df) == 0:
                 continue
 
-            fase = partido_df.iloc[0]["fase"]
 
             fila_existente = None
             for i, p in enumerate(predicciones_existentes):
@@ -361,8 +345,6 @@ def predicciones_page():
                         and str(p.get("partido_id", "")) == str(r["partido_id"])):
                     fila_existente = i + 2
                     break
-
-            ref = f"partido_{r['partido_id']}"
 
             if r["participa"]:
 
@@ -383,19 +365,11 @@ def predicciones_page():
                         1,
                         0
                     ])
-                    # Registrar apuesta solo si no existe ya
-                    if ref not in referencias_pagadas:
-                        nuevos_movimientos.append({
-                            "usuario_id": usuario_actual,
-                            "tipo": "apuesta",
-                            "referencia": ref,
-                            "monto": -valor_apuesta_por_fase(fase)
-                        })
 
                 guardados += 1
 
             elif fila_existente:
-                rows_a_eliminar.append((fila_existente, fase, ref))
+                pred_sheet.delete_rows(fila_existente)
                 eliminados += 1
 
         # ── Escribir todo en batch ──────────────────────────────
@@ -407,21 +381,6 @@ def predicciones_page():
         # 2. Actualizaciones de marcadores (una llamada por fila, pero solo si cambio)
         for rango, valores in rows_a_actualizar:
             pred_sheet.update(rango, valores)
-
-        # 3. Borrar filas de reversas (de abajo a arriba para no desplazar indices)
-        for fila, fase, ref in sorted(rows_a_eliminar, reverse=True):
-            pred_sheet.delete_rows(fila)
-            nuevos_movimientos.append({
-                "usuario_id": usuario_actual,
-                "tipo": "reverso_apuesta",
-                "referencia": ref,
-                "monto": valor_apuesta_por_fase(fase)
-            })
-
-        # 4. Todos los movimientos en una sola llamada
-        if nuevos_movimientos:
-            from utils.movimientos import registrar_movimientos
-            registrar_movimientos(nuevos_movimientos)
 
         cargar_todo.clear()
 
