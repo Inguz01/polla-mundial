@@ -18,4 +18,5 @@ Thumbs.db
 .vscode/
 
 # Credenciales
+credentials.json
 data/credentials.json
