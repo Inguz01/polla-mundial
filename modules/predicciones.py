@@ -7,6 +7,7 @@ from database.google_sheets import connect
 from utils.helpers import generar_id
 from utils.data_loader import cargar_todo
 
+
 def safe_int(value):
 
     if value is None:
@@ -16,6 +17,7 @@ def safe_int(value):
         return int(float(value))
     except:
         return 0
+
 
 def predicciones_page():
 
@@ -28,14 +30,14 @@ def predicciones_page():
     if not usuario_actual:
         st.error("Sesión no válida")
         st.stop()
-        
+
     data = cargar_todo()
 
     df_partidos = data["partidos"].copy()
 
     df_partidos = df_partidos[
-    df_partidos["estado"] == "programado"
-]
+        df_partidos["estado"] == "programado"
+    ]
 
     df_pred = data["predicciones"].copy()
 
@@ -50,71 +52,35 @@ def predicciones_page():
 
     # ======================================
 
-
     saldo = saldo_usuario(usuario_actual)
 
     if saldo < 0:
-
         st.error(f"Saldo: ${saldo:,.0f}")
-
     else:
-
         st.success(f"Saldo: ${saldo:,.0f}")
 
-
     if len(df_partidos) == 0:
-
         st.warning("No hay partidos disponibles")
-
         return
-
 
     # predicciones del usuario
 
     if len(df_pred) > 0:
-
-        df_pred = df_pred[
-
-            df_pred["usuario_id"] == usuario_actual
-
-        ]
-
+        df_pred = df_pred[df_pred["usuario_id"] == usuario_actual]
     else:
-
         df_pred = pd.DataFrame(columns=[
-
-            "usuario_id",
-            "partido_id",
-            "goles_local",
-            "goles_visitante"
-
+            "usuario_id", "partido_id", "goles_local", "goles_visitante"
         ])
-
 
     fechas = sorted(df_partidos["fecha"].unique())
 
+    fecha_sel = st.selectbox("Seleccione fecha", fechas)
 
-    fecha_sel = st.selectbox(
-
-        "Seleccione fecha",
-
-        fechas
-
-    )
-
-
-    df_partidos = df_partidos[
-
-        df_partidos["fecha"] == fecha_sel
-
-    ]
-
+    df_partidos = df_partidos[df_partidos["fecha"] == fecha_sel]
 
     st.write("Seleccione los partidos en los que desea participar")
 
-
     resultados = []
-
 
     for _, row in df_partidos.iterrows():
 
@@ -123,24 +89,14 @@ def predicciones_page():
         key_visit = f"visit_{row['id']}"
 
         pred_existente = df_pred[
-            df_pred["partido_id"].astype(str)
-            == str(row["id"])
+            df_pred["partido_id"].astype(str) == str(row["id"])
         ]
 
         if len(pred_existente) > 0:
-
             participa_default = True
-
-            goles_local_default = safe_int(
-                pred_existente.iloc[0]["goles_local"]
-            )
-
-            goles_visit_default = safe_int(
-                pred_existente.iloc[0]["goles_visitante"]
-            )
-
+            goles_local_default = safe_int(pred_existente.iloc[0]["goles_local"])
+            goles_visit_default = safe_int(pred_existente.iloc[0]["goles_visitante"])
         else:
-
             participa_default = False
             goles_local_default = 0
             goles_visit_default = 0
@@ -160,27 +116,16 @@ def predicciones_page():
             row.get("estado", "programado")
         )
 
-        codigo_local = mapa_codigos.get(
-            row["equipo_local"].strip(),
-            "xx"
-        )
-
-        codigo_visit = mapa_codigos.get(
-            row["equipo_visitante"].strip(),
-            "xx"
-        )
+        codigo_local = mapa_codigos.get(row["equipo_local"].strip(), "xx")
+        codigo_visit = mapa_codigos.get(row["equipo_visitante"].strip(), "xx")
 
         with st.container(border=True):
 
             # =========================
-            # PARTIDO
+            # TÍTULO PARTIDO
             # =========================
 
-            st.markdown(
-                f"""
-                ### ⚽ {row['equipo_local']} vs {row['equipo_visitante']}
-                """
-            )
+            st.markdown(f"### ⚽ {row['equipo_local']} vs {row['equipo_visitante']}")
 
             # =========================
             # FECHA Y HORA
@@ -214,25 +159,41 @@ def predicciones_page():
             )
 
             # =========================
-            # MARCADOR
+            # MARCADOR (mobile-safe)
+            # Banderas en HTML puro → siempre en fila horizontal.
+            # Solo 3 columnas amplias para los number_input → Streamlit
+            # nunca las colapsa en mobile.
             # =========================
 
-            c1, c2, c3, c4, c5 = st.columns(
-                [0.8,1.2,0.7,1.2,0.8],
-                vertical_alignment="center"
+            st.markdown(
+                f"""
+                <div style="display:flex; align-items:center;
+                            gap:6px; margin-bottom:4px;">
+                    <img src="https://flagcdn.com/w40/{codigo_local}.png"
+                         style="width:28px; height:auto; border-radius:2px;">
+                    <span style="font-size:13px; color:gray;">
+                        {row['equipo_local']}
+                    </span>
+                    <span style="flex:1;"></span>
+                    <span style="font-weight:700; font-size:15px; color:#555;">
+                        VS
+                    </span>
+                    <span style="flex:1;"></span>
+                    <span style="font-size:13px; color:gray; text-align:right;">
+                        {row['equipo_visitante']}
+                    </span>
+                    <img src="https://flagcdn.com/w40/{codigo_visit}.png"
+                         style="width:28px; height:auto; border-radius:2px;">
+                </div>
+                """,
+                unsafe_allow_html=True
             )
 
-            with c1:
+            c_local, c_sep, c_visit = st.columns([2, 1, 2])
 
-                st.image(
-                    f"https://flagcdn.com/w40/{codigo_local}.png",
-                    width=24
-                )
-
-            with c2:
-
+            with c_local:
                 goles_local = st.number_input(
-                    "",
+                    "Local",
                     min_value=0,
                     max_value=20,
                     step=1,
@@ -242,24 +203,16 @@ def predicciones_page():
                     label_visibility="collapsed"
                 )
 
-            with c3:
-
+            with c_sep:
                 st.markdown(
-                    """
-                    <div style='text-align:center;
-                                font-size:16px;
-                                font-weight:700;
-                                margin-top:8px'>
-                        VS
-                    </div>
-                    """,
+                    "<div style='text-align:center; font-size:22px;"
+                    " font-weight:700; padding-top:6px;'>—</div>",
                     unsafe_allow_html=True
                 )
 
-            with c4:
-
+            with c_visit:
                 goles_visitante = st.number_input(
-                    "",
+                    "Visitante",
                     min_value=0,
                     max_value=20,
                     step=1,
@@ -269,27 +222,17 @@ def predicciones_page():
                     label_visibility="collapsed"
                 )
 
-            with c5:
-
-                st.image(
-                    f"https://flagcdn.com/w40/{codigo_visit}.png",
-                    width=24
-                )
             resultados.append({
-
                 "partido_id": row["id"],
                 "participa": participa,
                 "goles_local": goles_local,
                 "goles_visitante": goles_visitante,
                 "abierto": abierto
-
             })
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-
     st.divider()
-
 
     if st.button("Guardar predicciones"):
 
@@ -297,9 +240,8 @@ def predicciones_page():
         pred_sheet = db.worksheet("predicciones")
         predicciones_existentes = pred_sheet.get_all_records()
 
-        # Acumular todas las filas nuevas de predicciones y movimientos
         nuevas_predicciones = []
-        rows_a_actualizar   = []  # (rango, valores) para predicciones existentes
+        rows_a_actualizar = []
 
         guardados = 0
         eliminados = 0
@@ -318,7 +260,6 @@ def predicciones_page():
             if len(partido_df) == 0:
                 continue
 
-
             fila_existente = None
             for i, p in enumerate(predicciones_existentes):
                 if (str(p.get("usuario_id", "")) == str(usuario_actual)
@@ -329,13 +270,11 @@ def predicciones_page():
             if r["participa"]:
 
                 if fila_existente:
-                    # Actualizar marcador existente (no genera nuevo movimiento)
                     rows_a_actualizar.append((
                         f"D{fila_existente}:G{fila_existente}",
                         [[int(r["goles_local"]), int(r["goles_visitante"]), 1, 0]]
                     ))
                 else:
-                    # Nueva prediccion
                     nuevas_predicciones.append([
                         generar_id(),
                         usuario_actual,
@@ -354,11 +293,9 @@ def predicciones_page():
 
         # ── Escribir todo en batch ──────────────────────────────
 
-        # 1. Nuevas predicciones en una sola llamada
         if nuevas_predicciones:
             pred_sheet.append_rows(nuevas_predicciones, value_input_option="USER_ENTERED")
 
-        # 2. Actualizaciones de marcadores (una llamada por fila, pero solo si cambio)
         for rango, valores in rows_a_actualizar:
             pred_sheet.update(rango, valores)
 
