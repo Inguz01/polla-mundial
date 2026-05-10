@@ -217,57 +217,84 @@ def predicciones_page():
             # MARCADOR
             # =========================
 
-            c1, c2, c3, c4, c5 = st.columns(
-                [1,1.7,0.7,1.7,1],
+            c1, c2, c3 = st.columns(
+                [3,1,3],
                 vertical_alignment="center"
             )
 
+            # =========================
+            # LOCAL
+            # =========================
+
             with c1:
 
-                st.image(
-                    f"https://flagcdn.com/w40/{codigo_local}.png",
-                    width=30
-                )
+                cc1, cc2 = st.columns([1,2])
+
+                with cc1:
+
+                    st.image(
+                        f"https://flagcdn.com/w40/{codigo_local}.png",
+                        width=28
+                    )
+
+                with cc2:
+
+                    goles_local = st.number_input(
+                        "",
+                        min_value=0,
+                        max_value=20,
+                        step=1,
+                        format="%d",
+                        key=key_local,
+                        disabled=(not participa or not abierto),
+                        label_visibility="collapsed"
+                    )
+
+            # =========================
+            # VS
+            # =========================
 
             with c2:
 
-                goles_local = st.number_input(
-                    "",
-                    min_value=0,
-                    max_value=20,
-                    step=1,
-                    format="%d",
-                    key=key_local,
-                    disabled=(not participa or not abierto),
-                    label_visibility="collapsed"
-                )
-
-            with c3:
-
                 st.markdown(
-                    "<div style='text-align:center;font-size:16px;font-weight:700;'>VS</div>",
+                    """
+                    <div style='text-align:center;
+                                font-size:18px;
+                                font-weight:700;
+                                padding-top:8px'>
+                        VS
+                    </div>
+                    """,
                     unsafe_allow_html=True
                 )
 
-            with c4:
+            # =========================
+            # VISITANTE
+            # =========================
 
-                goles_visitante = st.number_input(
-                    "",
-                    min_value=0,
-                    max_value=20,
-                    step=1,
-                    format="%d",
-                    key=key_visit,
-                    disabled=(not participa or not abierto),
-                    label_visibility="collapsed"
-                )
+            with c3:
 
-            with c5:
+                cc3, cc4 = st.columns([2,1])
 
-                st.image(
-                    f"https://flagcdn.com/w40/{codigo_visit}.png",
-                    width=30
-                )
+                with cc3:
+
+                    goles_visitante = st.number_input(
+                        "",
+                        min_value=0,
+                        max_value=20,
+                        step=1,
+                        format="%d",
+                        key=key_visit,
+                        disabled=(not participa or not abierto),
+                        label_visibility="collapsed"
+                    )
+
+                with cc4:
+
+                    st.image(
+                        f"https://flagcdn.com/w40/{codigo_visit}.png",
+                        width=28
+                    )
 
             resultados.append({
 
