@@ -9,10 +9,8 @@ from utils.data_loader import cargar_todo
 
 
 def safe_int(value):
-
     if value is None:
         return 0
-
     try:
         return int(float(value))
     except:
@@ -23,7 +21,16 @@ def predicciones_page():
 
     st.title("Registrar predicciones")
 
-    # ========= CARGA CENTRALIZADA =========
+    st.markdown("""
+    <style>
+    /* Campo de goles: centrado, grande, sin decoraciones */
+    div[data-testid="stTextInput"] input {
+        text-align: center !important;
+        font-size: 22px !important;
+        font-weight: 700 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     usuario_actual = st.session_state.get("usuario")
 
@@ -34,10 +41,7 @@ def predicciones_page():
     data = cargar_todo()
 
     df_partidos = data["partidos"].copy()
-
-    df_partidos = df_partidos[
-        df_partidos["estado"] == "programado"
-    ]
+    df_partidos = df_partidos[df_partidos["estado"] == "programado"]
 
     df_pred = data["predicciones"].copy()
 
@@ -50,8 +54,6 @@ def predicciones_page():
         )
     )
 
-    # ======================================
-
     saldo = saldo_usuario(usuario_actual)
 
     if saldo < 0:
@@ -63,8 +65,6 @@ def predicciones_page():
         st.warning("No hay partidos disponibles")
         return
 
-    # predicciones del usuario
-
     if len(df_pred) > 0:
         df_pred = df_pred[df_pred["usuario_id"] == usuario_actual]
     else:
@@ -73,9 +73,7 @@ def predicciones_page():
         ])
 
     fechas = sorted(df_partidos["fecha"].unique())
-
     fecha_sel = st.selectbox("Seleccione fecha", fechas)
-
     df_partidos = df_partidos[df_partidos["fecha"] == fecha_sel]
 
     st.write("Seleccione los partidos en los que desea participar")
@@ -93,20 +91,18 @@ def predicciones_page():
         ]
 
         if len(pred_existente) > 0:
-            participa_default = True
-            goles_local_default = safe_int(pred_existente.iloc[0]["goles_local"])
-            goles_visit_default = safe_int(pred_existente.iloc[0]["goles_visitante"])
+            participa_default   = True
+            goles_local_default = str(safe_int(pred_existente.iloc[0]["goles_local"]))
+            goles_visit_default = str(safe_int(pred_existente.iloc[0]["goles_visitante"]))
         else:
-            participa_default = False
-            goles_local_default = 0
-            goles_visit_default = 0
+            participa_default   = False
+            goles_local_default = "0"
+            goles_visit_default = "0"
 
         if key_check not in st.session_state:
             st.session_state[key_check] = participa_default
-
         if key_local not in st.session_state:
             st.session_state[key_local] = goles_local_default
-
         if key_visit not in st.session_state:
             st.session_state[key_visit] = goles_visit_default
 
@@ -121,113 +117,93 @@ def predicciones_page():
 
         with st.container(border=True):
 
-            # =========================
-            # TÍTULO PARTIDO
-            # =========================
-
-            st.markdown(f"### ⚽ {row['equipo_local']} vs {row['equipo_visitante']}")
-
-            # =========================
-            # FECHA Y HORA
-            # =========================
-
+            # ── Fecha y hora ──────────────────────────
             c_fecha, c_hora = st.columns(2)
-
             with c_fecha:
                 st.caption(f"📅 {row['fecha']}")
-
             with c_hora:
                 st.caption(f"⏰ {row['hora']}")
 
-            # =========================
-            # ESTADO
-            # =========================
-
+            # ── Estado ───────────────────────────────
             if abierto:
                 st.success("🟢 Apuestas abiertas")
             else:
                 st.error("🔒 Partido iniciado")
 
-            # =========================
-            # PARTICIPAR
-            # =========================
-
+            # ── Participar ───────────────────────────
             participa = st.checkbox(
                 "Participar",
                 key=key_check,
                 disabled=not abierto
             )
 
-            # =========================
-            # MARCADOR (mobile-safe)
-            # Banderas en HTML puro → siempre en fila horizontal.
-            # Solo 3 columnas amplias para los number_input → Streamlit
-            # nunca las colapsa en mobile.
-            # =========================
+            # ── MARCADOR ─────────────────────────────
+            #
+            #  🇩🇪  Alemania        [ 2 ]
+            #  🇨🇼  Curazao         [ 0 ]
+            #
+            # text_input: campo libre, sin botones +/-, el usuario
+            # escribe el número directamente. Simple y funciona igual
+            # en web y mobile.
 
-            st.markdown(
-                f"""
-                <div style="display:flex; align-items:center;
-                            gap:6px; margin-bottom:4px;">
-                    <img src="https://flagcdn.com/w40/{codigo_local}.png"
-                         style="width:28px; height:auto; border-radius:2px;">
-                    <span style="font-size:13px; color:gray;">
-                        {row['equipo_local']}
-                    </span>
-                    <span style="flex:1;"></span>
-                    <span style="font-weight:700; font-size:15px; color:#555;">
-                        VS
-                    </span>
-                    <span style="flex:1;"></span>
-                    <span style="font-size:13px; color:gray; text-align:right;">
-                        {row['equipo_visitante']}
-                    </span>
-                    <img src="https://flagcdn.com/w40/{codigo_visit}.png"
-                         style="width:28px; height:auto; border-radius:2px;">
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+            c_info_l, c_num_l = st.columns([3, 1])
 
-            c_local, c_sep, c_visit = st.columns([2, 1, 2])
-
-            with c_local:
-                goles_local = st.number_input(
-                    "Local",
-                    min_value=0,
-                    max_value=20,
-                    step=1,
-                    format="%d",
-                    key=key_local,
-                    disabled=(not participa or not abierto),
-                    label_visibility="collapsed"
-                )
-
-            with c_sep:
+            with c_info_l:
                 st.markdown(
-                    "<div style='text-align:center; font-size:22px;"
-                    " font-weight:700; padding-top:6px;'>—</div>",
+                    f"""
+                    <div style="display:flex; align-items:center;
+                                gap:8px; padding-top:8px;">
+                        <img src="https://flagcdn.com/w40/{codigo_local}.png"
+                             style="width:26px; border-radius:2px; flex-shrink:0;">
+                        <span style="font-size:15px; font-weight:600;">
+                            {row['equipo_local']}
+                        </span>
+                    </div>
+                    """,
                     unsafe_allow_html=True
                 )
 
-            with c_visit:
-                goles_visitante = st.number_input(
+            with c_num_l:
+                val_local = st.text_input(
+                    "Local",
+                    key=key_local,
+                    disabled=(not participa or not abierto),
+                    label_visibility="collapsed",
+                    max_chars=2
+                )
+
+            c_info_v, c_num_v = st.columns([3, 1])
+
+            with c_info_v:
+                st.markdown(
+                    f"""
+                    <div style="display:flex; align-items:center;
+                                gap:8px; padding-top:8px;">
+                        <img src="https://flagcdn.com/w40/{codigo_visit}.png"
+                             style="width:26px; border-radius:2px; flex-shrink:0;">
+                        <span style="font-size:15px; font-weight:600;">
+                            {row['equipo_visitante']}
+                        </span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+            with c_num_v:
+                val_visit = st.text_input(
                     "Visitante",
-                    min_value=0,
-                    max_value=20,
-                    step=1,
-                    format="%d",
                     key=key_visit,
                     disabled=(not participa or not abierto),
-                    label_visibility="collapsed"
+                    label_visibility="collapsed",
+                    max_chars=2
                 )
 
             resultados.append({
-                "partido_id": row["id"],
-                "participa": participa,
-                "goles_local": goles_local,
-                "goles_visitante": goles_visitante,
-                "abierto": abierto
+                "partido_id":      row["id"],
+                "participa":       participa,
+                "goles_local":     val_local,
+                "goles_visitante": val_visit,
+                "abierto":         abierto
             })
 
             st.markdown("<br>", unsafe_allow_html=True)
@@ -236,25 +212,33 @@ def predicciones_page():
 
     if st.button("Guardar predicciones"):
 
+        # ── Validar que todos los campos sean números válidos ──
+        for r in resultados:
+            if not r["abierto"] or not r["participa"]:
+                continue
+            for campo in [r["goles_local"], r["goles_visitante"]]:
+                if not campo.strip().isdigit():
+                    st.error("Solo se permiten números enteros en los marcadores")
+                    st.stop()
+            gl = int(r["goles_local"].strip())
+            gv = int(r["goles_visitante"].strip())
+            if not validar_marcador(gl, gv):
+                st.error("No puedes ingresar un marcador mayor a 20")
+                st.stop()
+
         db = connect()
         pred_sheet = db.worksheet("predicciones")
         predicciones_existentes = pred_sheet.get_all_records()
 
         nuevas_predicciones = []
-        rows_a_actualizar = []
-
-        guardados = 0
+        rows_a_actualizar   = []
+        guardados  = 0
         eliminados = 0
 
         for r in resultados:
 
             if not r["abierto"]:
                 continue
-
-            if r["participa"]:
-                if not validar_marcador(r["goles_local"], r["goles_visitante"]):
-                    st.error("Marcador invalido")
-                    st.stop()
 
             partido_df = df_partidos[df_partidos["id"] == r["partido_id"]]
             if len(partido_df) == 0:
@@ -268,30 +252,29 @@ def predicciones_page():
                     break
 
             if r["participa"]:
+                gl = int(r["goles_local"].strip())
+                gv = int(r["goles_visitante"].strip())
 
                 if fila_existente:
                     rows_a_actualizar.append((
                         f"D{fila_existente}:G{fila_existente}",
-                        [[int(r["goles_local"]), int(r["goles_visitante"]), 1, 0]]
+                        [[gl, gv, 1, 0]]
                     ))
                 else:
                     nuevas_predicciones.append([
                         generar_id(),
                         usuario_actual,
                         r["partido_id"],
-                        int(r["goles_local"]),
-                        int(r["goles_visitante"]),
+                        gl,
+                        gv,
                         1,
                         0
                     ])
-
                 guardados += 1
 
             elif fila_existente:
                 pred_sheet.delete_rows(fila_existente)
                 eliminados += 1
-
-        # ── Escribir todo en batch ──────────────────────────────
 
         if nuevas_predicciones:
             pred_sheet.append_rows(nuevas_predicciones, value_input_option="USER_ENTERED")
@@ -302,10 +285,8 @@ def predicciones_page():
         cargar_todo.clear()
 
         mensajes = []
-        if guardados > 0:
-            mensajes.append(f"{guardados} guardadas")
-        if eliminados > 0:
-            mensajes.append(f"{eliminados} eliminadas")
+        if guardados  > 0: mensajes.append(f"{guardados} guardadas")
+        if eliminados > 0: mensajes.append(f"{eliminados} eliminadas")
 
         if mensajes:
             st.success(" / ".join(mensajes))
