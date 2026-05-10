@@ -48,12 +48,6 @@ def predicciones_page():
         )
     )
 
-        # 🔒 BLOQUEAR ADMIN
-    if st.session_state.get("rol") == "admin":
-        st.warning("Los administradores no pueden realizar predicciones")
-        st.stop()
-    
-    
     # ======================================
 
 
@@ -223,13 +217,16 @@ def predicciones_page():
             # MARCADOR
             # =========================
 
-            c1, c2, c3, c4, c5 = st.columns([1,2,1,2,1])
+            c1, c2, c3, c4, c5 = st.columns(
+                [1,1.7,0.7,1.7,1],
+                vertical_alignment="center"
+            )
 
             with c1:
 
                 st.image(
                     f"https://flagcdn.com/w40/{codigo_local}.png",
-                    width=35
+                    width=30
                 )
 
             with c2:
@@ -248,7 +245,7 @@ def predicciones_page():
             with c3:
 
                 st.markdown(
-                    "<div style='text-align:center;margin-top:8px;font-size:22px'>vs</div>",
+                    "<div style='text-align:center;font-size:16px;font-weight:700;'>VS</div>",
                     unsafe_allow_html=True
                 )
 
@@ -269,7 +266,7 @@ def predicciones_page():
 
                 st.image(
                     f"https://flagcdn.com/w40/{codigo_visit}.png",
-                    width=35
+                    width=30
                 )
 
             resultados.append({

@@ -44,6 +44,12 @@ st.markdown("""
     text-align: center;
 }
 
+/* NUMBER INPUT MÁS COMPACTO */
+            
+div[data-testid="stNumberInput"] {
+    max-width: 90px;
+}            
+
 /* SELECTBOX */
 
 .stSelectbox div[data-baseweb="select"] {
@@ -151,13 +157,13 @@ st.sidebar.title("⚽ Polla Mundial")
 
 menu_opciones = [
 
-    "Inicio",
+    "Reglas de juego",
 
-    "Mis predicciones",
+    "Mis pronósticos",
 
     "Mi historial",
 
-    "Tabla posiciones",
+    "Tabla de posiciones",
 
     "Premios por partido"
 
@@ -169,17 +175,23 @@ menu_opciones = [
 
 if ROL_ACTUAL == "admin":
 
-    menu_opciones.extend([
+    menu_opciones = [
 
-        "Resultados",
+        "Reglas de juego",
 
-        "Movimientos",
+        "Gestionar usuarios",
 
-        "Finanzas",
+        "Registrar marcadores",
 
-        "Usuarios"
+        "Liquidar partidos",
 
-    ])
+        "Tabla de posiciones",
+
+        "Registrar movimientos financieros",
+
+        "Dashboard financiero"
+
+    ]
 
 # =============================
 # MENÚ
@@ -197,11 +209,11 @@ menu = st.sidebar.radio(
 # NAVEGACIÓN
 # =============================
 
-if menu == "Inicio":
+if menu == "Reglas de juego":
 
     home_page()
 
-elif menu == "Mis predicciones":
+elif menu == "Mis pronósticos":
 
     predicciones_page()
 
@@ -209,29 +221,37 @@ elif menu == "Mi historial":
 
     historial_page()
 
-elif menu == "Tabla posiciones":
+elif menu == "Tabla de posiciones":
 
     ranking_page()
-
-elif menu == "Resultados":
-
-    resultados_page()
-
-elif menu == "Movimientos":
-
-    movimientos_page()
 
 elif menu == "Premios por partido":
 
     resultados_partido_page()
 
-elif menu == "Finanzas":
+# =============================
+# ADMIN
+# =============================
 
-    finanzas_page()
-
-elif menu == "Usuarios":
+elif menu == "Gestionar usuarios":
 
     admin_usuarios_page()
+
+elif menu == "Registrar marcadores":
+
+    resultados_page()
+
+elif menu == "Liquidar partidos":
+
+    resultados_partido_page()
+
+elif menu == "Registrar movimientos financieros":
+
+    movimientos_page()
+
+elif menu == "Dashboard financiero":
+
+    finanzas_page()
 
 # =============================
 # FOOTER SIDEBAR

@@ -28,10 +28,6 @@ def historial_page():
 
     # ==============================
 
-    if st.session_state.get("rol") == "admin":
-        st.warning("Este módulo es solo para participantes")
-        st.stop()
-
     if len(df_pred) == 0:
         st.info("Aún no tienes apuestas")
         return
