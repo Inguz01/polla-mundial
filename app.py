@@ -44,11 +44,16 @@ st.markdown("""
     text-align: center;
 }
 
-/* NUMBER INPUT MÁS COMPACTO */
-            
+/* NUMBER INPUT COMPACTO */
+
 div[data-testid="stNumberInput"] {
-    max-width: 90px;
-}            
+    width: 70px !important;
+}
+
+div[data-testid="stNumberInput"] input {
+    text-align: center !important;
+    font-size: 18px !important;
+}           
 
 /* SELECTBOX */
 
