@@ -122,190 +122,167 @@ def predicciones_page():
     resultados = []
 
 
-    h1, h2, h3 = st.columns([1,4,3])
-
-    h1.write("✔")
-
-    h2.write("Partido")
-
-    h3.write("Marcador")
-
-    st.divider()
-
-
-
     for _, row in df_partidos.iterrows():
 
-        col_check, col_partido, col_score = st.columns([1,4,3])
-
-
         key_check = f"check_{row['id']}"
-
         key_local = f"local_{row['id']}"
-
         key_visit = f"visit_{row['id']}"
 
-
         pred_existente = df_pred[
-
             df_pred["partido_id"].astype(str)
             == str(row["id"])
-
         ]
-
 
         if len(pred_existente) > 0:
 
             participa_default = True
 
             goles_local_default = safe_int(
-
                 pred_existente.iloc[0]["goles_local"]
-
             )
 
             goles_visit_default = safe_int(
-
                 pred_existente.iloc[0]["goles_visitante"]
-
             )
 
         else:
 
             participa_default = False
-
             goles_local_default = 0
-
             goles_visit_default = 0
 
-
         if key_check not in st.session_state:
-
             st.session_state[key_check] = participa_default
 
-
         if key_local not in st.session_state:
-
             st.session_state[key_local] = goles_local_default
 
-
         if key_visit not in st.session_state:
-
             st.session_state[key_visit] = goles_visit_default
 
-
         abierto = apuesta_abierta(
-
             row["fecha"],
-
             row["hora"],
-
             row.get("estado", "programado")
-
         )
 
+        codigo_local = mapa_codigos.get(
+            row["equipo_local"].strip(),
+            "xx"
+        )
 
-        with col_check:
+        codigo_visit = mapa_codigos.get(
+            row["equipo_visitante"].strip(),
+            "xx"
+        )
 
-            participa = st.checkbox(
+        with st.container(border=True):
 
-                "",
+            # =========================
+            # PARTIDO
+            # =========================
 
-                key=key_check,
-
-                disabled=not abierto
-
+            st.markdown(
+                f"""
+                ### ⚽ {row['equipo_local']} vs {row['equipo_visitante']}
+                """
             )
 
+            # =========================
+            # FECHA Y HORA
+            # =========================
 
-        with col_partido:
+            c_fecha, c_hora = st.columns(2)
 
-            codigo_local = mapa_codigos.get(row["equipo_local"].strip(), "xx")
-            codigo_visit = mapa_codigos.get(row["equipo_visitante"].strip(), "xx")
+            with c_fecha:
+                st.caption(f"📅 {row['fecha']}")
 
-            col_a, col_b, col_c = st.columns([1,4,1])
+            with c_hora:
+                st.caption(f"⏰ {row['hora']}")
 
-            with col_a:
-                st.image(f"https://flagcdn.com/w40/{codigo_local}.png", width=30)
+            # =========================
+            # ESTADO
+            # =========================
 
-            with col_b:
-                st.write(f"{row['equipo_local']} vs {row['equipo_visitante']}")
+            if abierto:
+                st.success("🟢 Apuestas abiertas")
+            else:
+                st.error("🔒 Partido iniciado")
 
-            with col_c:
-                st.image(f"https://flagcdn.com/w40/{codigo_visit}.png", width=30)
+            # =========================
+            # PARTICIPAR
+            # =========================
 
+            participa = st.checkbox(
+                "Participar",
+                key=key_check,
+                disabled=not abierto
+            )
 
-        with col_score:
+            # =========================
+            # MARCADOR
+            # =========================
 
-            c1, c2, c3 = st.columns([1,0.3,1])
-
+            c1, c2, c3, c4, c5 = st.columns([1,2,1,2,1])
 
             with c1:
 
-                goles_local = st.number_input(
-
-                    " ",
-
-                    min_value=0,
-
-                    max_value=20,
-
-                    step=1,
-
-                    format="%d",
-
-                    key=key_local,
-
-                    disabled=(not participa or not abierto)
-
+                st.image(
+                    f"https://flagcdn.com/w40/{codigo_local}.png",
+                    width=35
                 )
-
 
             with c2:
 
-                st.markdown(
-
-                    "<div style='text-align:center;margin-top:8px'>-</div>",
-
-                    unsafe_allow_html=True
-
+                goles_local = st.number_input(
+                    "",
+                    min_value=0,
+                    max_value=20,
+                    step=1,
+                    format="%d",
+                    key=key_local,
+                    disabled=(not participa or not abierto),
+                    label_visibility="collapsed"
                 )
-
 
             with c3:
 
-                goles_visitante = st.number_input(
-
-                    " ",
-
-                    min_value=0,
-
-                    max_value=20,
-
-                    step=1,
-
-                    format="%d",
-
-                    key=key_visit,
-
-                    disabled=(not participa or not abierto)
-
+                st.markdown(
+                    "<div style='text-align:center;margin-top:8px;font-size:22px'>vs</div>",
+                    unsafe_allow_html=True
                 )
 
+            with c4:
 
-        resultados.append({
+                goles_visitante = st.number_input(
+                    "",
+                    min_value=0,
+                    max_value=20,
+                    step=1,
+                    format="%d",
+                    key=key_visit,
+                    disabled=(not participa or not abierto),
+                    label_visibility="collapsed"
+                )
 
-            "partido_id": row["id"],
+            with c5:
 
-            "participa": participa,
+                st.image(
+                    f"https://flagcdn.com/w40/{codigo_visit}.png",
+                    width=35
+                )
 
-            "goles_local": goles_local,
+            resultados.append({
 
-            "goles_visitante": goles_visitante,
+                "partido_id": row["id"],
+                "participa": participa,
+                "goles_local": goles_local,
+                "goles_visitante": goles_visitante,
+                "abierto": abierto
 
-            "abierto": abierto
+            })
 
-        })
+            st.markdown("<br>", unsafe_allow_html=True)
 
 
     st.divider()

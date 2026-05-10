@@ -185,4 +185,57 @@ def ranking_page():
         ["posicion", "usuario_id", "partidos_jugados", "puntos", "exacto"]
     ]
 
-    st.dataframe(tabla, use_container_width=True)
+    # =========================
+    # TOP 3
+    # =========================
+
+    top3 = tabla.head(3)
+
+    medallas = {
+        1: "🥇",
+        2: "🥈",
+        3: "🥉"
+    }
+
+    for _, row in top3.iterrows():
+
+        posicion = int(row["posicion"])
+
+        medalla = medallas.get(posicion, "🏅")
+
+        with st.expander(
+            f"{medalla} {row['usuario_id']} — ⭐ {row['puntos']} pts",
+            expanded=(posicion == 1)
+        ):
+
+            st.markdown(
+                f"""
+                🎯 **Exactos:** {row['exacto']}
+
+                ⚽ **Partidos jugados:** {row['partidos_jugados']}
+                """
+            )
+
+    # =========================
+    # RESTO DEL RANKING
+    # =========================
+
+    resto = tabla.iloc[3:]
+
+    if len(resto) > 0:
+
+        st.divider()
+
+        for _, row in resto.iterrows():
+
+            with st.expander(
+                f"#{row['posicion']} — {row['usuario_id']} | ⭐ {row['puntos']} pts"
+            ):
+
+                st.markdown(
+                    f"""
+                    🎯 **Exactos:** {row['exacto']}
+
+                    ⚽ **Partidos jugados:** {row['partidos_jugados']}
+                    """
+                )

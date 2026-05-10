@@ -191,6 +191,42 @@ def historial_page():
             "puntos",
             "premio"
         ]
-    ].sort_values(by="fecha")
+    ].sort_values(
+        by="fecha",
+        ascending=False
+    )
 
-    st.dataframe(tabla, use_container_width=True)
+    # =========================
+    # CARDS MOBILE-FIRST
+    # =========================
+
+    for _, row in tabla.iterrows():
+
+        premio = row["premio"]
+
+        if premio is None or premio == 0:
+            premio_texto = "—"
+        else:
+            premio_texto = f"${float(premio):,.0f}"
+
+        puntos = row["puntos"]
+
+        if puntos is None:
+            puntos = "-"
+
+        with st.expander(
+            f"⚽ {row['partido']} | 📅 {row['fecha']}",
+            expanded=False
+        ):
+
+            st.markdown(
+                f"""
+                🔮 **Tu predicción:** {row['prediccion']}
+
+                🏁 **Resultado:** {row['resultado']}
+
+                ⭐ **Puntos:** {puntos}
+
+                💰 **Premio:** {premio_texto}
+                """
+            )
