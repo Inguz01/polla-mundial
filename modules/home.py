@@ -15,15 +15,15 @@ def home_page():
     text-align:center;
     margin-bottom:30px;'>
 
-    <div style='font-size:72px;margin-bottom:10px;'>
+    <div class='hero-copa' style='font-size:72px;margin-bottom:10px;'>
     🏆
     </div>
 
-    <div style='font-size:64px;font-weight:700;color:white;line-height:1;'>
+    <div class='hero-titulo' style='font-size:64px;font-weight:700;color:white;line-height:1;'>
     POLLA MUNDIAL
     </div>
 
-    <div style='font-size:42px;font-weight:700;color:#FACC15;margin-top:8px;'>
+    <div class='hero-subtitulo' style='font-size:42px;font-weight:700;color:#FACC15;margin-top:8px;'>
     SOMOS 26
     </div>
 
@@ -63,25 +63,6 @@ def home_page():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-
-    st.markdown("""
-    <style>
-
-    .card-azul {
-        background: rgba(37,99,235,0.18);
-    }
-
-    .card-dorado {
-        background: rgba(250,204,21,0.14);
-    }
-
-    .card-verde {
-        background: rgba(22,163,74,0.14);
-    }
-
-    </style>
-    """, unsafe_allow_html=True)
-
     # =========================
     # SISTEMA DE PUNTOS
     # =========================
@@ -94,19 +75,21 @@ def home_page():
 
         st.write("## 3 puntos")
 
-
     with st.container(border=True):
 
         st.markdown("## 🟡 RESULTADO (GANADOR/EMPATE)")
 
         st.write("## 2 puntos")
 
-
     with st.container(border=True):
 
         st.markdown("## ⚪ SOLO POR PARTICIPAR")
 
         st.write("## 1 punto")
+
+    st.info("""
+🏆 En caso de empate en puntos, gana quien tenga más marcadores exactos acertados.
+""")
 
     # =========================
     # EJEMPLOS

@@ -281,6 +281,18 @@ MOBILE
 
         height: 3.2em;
     }
+            
+    .hero-titulo {
+        font-size: 38px !important;
+    }
+
+    .hero-subtitulo {
+        font-size: 24px !important;
+    }
+
+    .hero-copa {
+        font-size: 48px !important;
+    }
 }
 
 </style>
