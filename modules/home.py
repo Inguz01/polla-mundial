@@ -1,5 +1,5 @@
 import streamlit as st
-
+import pandas as pd
 
 def home_page():
 
@@ -15,15 +15,15 @@ def home_page():
     text-align:center;
     margin-bottom:30px;'>
 
-    <div class='hero-copa' style='font-size:72px;margin-bottom:10px;'>
+    <div class='hero-copa' style='font-size:65px;margin-bottom:10px;'>
     🏆
     </div>
 
-    <div class='hero-titulo' style='font-size:64px;font-weight:700;color:white;line-height:1;'>
+    <div class='hero-titulo' style='font-size:42px;font-weight:700;color:white;line-height:1;'>
     POLLA MUNDIAL
     </div>
 
-    <div class='hero-subtitulo' style='font-size:42px;font-weight:700;color:#FACC15;margin-top:8px;'>
+    <div class='hero-subtitulo' style='font-size:34px;font-weight:700;color:#FACC15;margin-top:8px;'>
     SOMOS 26
     </div>
 
@@ -33,35 +33,6 @@ def home_page():
 
     </div>
     """, unsafe_allow_html=True)
-
-    # =========================
-    # KPIs
-    # =========================
-
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-
-        st.metric(
-            "💰 Apuesta grupos",
-            "$5.000"
-        )
-
-    with c2:
-
-        st.metric(
-            "🔥 Comisión",
-            "10%"
-        )
-
-    with c3:
-
-        st.metric(
-            "🏆 Jackpot",
-            "Acumulado"
-        )
-
-    st.markdown("<br>", unsafe_allow_html=True)
 
     # =========================
     # SISTEMA DE PUNTOS
@@ -97,7 +68,8 @@ def home_page():
 
     st.subheader("📊 Ejemplos")
 
-    st.table({
+
+    df_ejemplos = pd.DataFrame({
 
         "Predicción": ["2 - 1", "2 - 1", "2 - 1"],
 
@@ -106,6 +78,12 @@ def home_page():
         "Puntos": ["3", "2", "1"]
 
     })
+
+    st.dataframe(
+        df_ejemplos,
+        hide_index=True,
+        use_container_width=True
+    )
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -179,7 +157,7 @@ def home_page():
 
     st.subheader("⚽ Valores por fase")
 
-    st.table({
+    df_fases = pd.DataFrame({
 
         "Fase": [
 
@@ -202,6 +180,12 @@ def home_page():
         ]
 
     })
+
+    st.dataframe(
+        df_fases,
+        hide_index=True,
+        use_container_width=True
+    )
 
     st.markdown("<br>", unsafe_allow_html=True)
 

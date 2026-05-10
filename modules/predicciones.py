@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-
+import pytz
+from datetime import datetime
 from utils.validaciones import apuesta_abierta, validar_marcador
 from utils.saldos import saldo_usuario
 from database.google_sheets import connect
@@ -72,10 +73,76 @@ def predicciones_page():
             "usuario_id", "partido_id", "goles_local", "goles_visitante"
         ])
 
-    fechas = sorted(df_partidos["fecha"].unique())
-    fecha_sel = st.selectbox("Seleccione fecha", fechas)
-    df_partidos = df_partidos[df_partidos["fecha"] == fecha_sel]
+    # =========================
+    # TIMEZONE
+    # =========================
 
+    tz = pytz.timezone("America/Bogota")
+
+    ahora = pd.Timestamp.now(tz).tz_localize(None)
+
+    # =========================
+    # FECHA COMPLETA PARTIDO
+    # =========================
+
+    df_partidos["fecha_hora"] = pd.to_datetime(
+        df_partidos["fecha"].astype(str) + " " +
+        df_partidos["hora"].astype(str),
+        errors="coerce"
+    )
+
+    # =========================
+    # SOLO PARTIDOS FUTUROS
+    # =========================
+
+    df_partidos = df_partidos[
+        df_partidos["fecha_hora"] > ahora
+    ].copy()
+
+    # =========================
+    # VALIDAR DISPONIBLES
+    # =========================
+
+    if len(df_partidos) == 0:
+
+        st.warning("No hay partidos disponibles")
+
+        return
+
+    # =========================
+    # FECHAS DISPONIBLES
+    # =========================
+
+    fechas_disponibles = sorted(
+        df_partidos["fecha"].unique()
+    )
+
+    # =========================
+    # PRÓXIMA FECHA
+    # =========================
+
+    proxima_fecha = fechas_disponibles[0]
+
+    # =========================
+    # CALENDARIO
+    # =========================
+
+    fecha_sel = st.date_input(
+        "📅 Selecciona una fecha",
+        value=pd.to_datetime(proxima_fecha).date(),
+        min_value=pd.to_datetime(proxima_fecha).date(),
+        max_value=pd.to_datetime(
+            max(fechas_disponibles)
+        ).date()
+    )
+
+    # =========================
+    # FILTRAR FECHA
+    # =========================
+
+    df_partidos = df_partidos[
+        pd.to_datetime(df_partidos["fecha"]).dt.date == fecha_sel
+    ]
     st.write("Seleccione los partidos en los que desea participar")
 
     resultados = []
