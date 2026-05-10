@@ -48,13 +48,20 @@ def admin_usuarios_page():
 
     if st.button("Crear usuario"):
 
-        nuevo_usuario = nuevo_usuario.strip()
+        nuevo_usuario = nuevo_usuario.strip().lower()
 
         if not nuevo_usuario or not password:
             st.warning("Completa todos los campos")
             return
 
-        if len(df[df["usuario_id"] == nuevo_usuario]) > 0:
+        usuarios_existentes = (
+            df["usuario_id"]
+            .astype(str)
+            .str.strip()
+            .str.lower()
+        )
+
+        if nuevo_usuario in usuarios_existentes.values:
             st.error("El usuario ya existe")
             return
 

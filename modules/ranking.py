@@ -205,7 +205,7 @@ def ranking_page():
 
         with st.expander(
             f"{medalla} {row['usuario_id']} — ⭐ {row['puntos']} pts",
-            expanded=(posicion == 1)
+            expanded=False
         ):
 
             st.markdown(

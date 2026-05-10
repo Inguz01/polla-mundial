@@ -3,87 +3,229 @@ import streamlit as st
 
 def home_page():
 
-    st.title("Bienvenido a la Polla Mundial")
-
-    st.subheader("Reglas del juego")
+    # =========================
+    # HERO
+    # =========================
 
     st.markdown("""
-## 🧠 Sistema de puntos
+    <div style='padding:40px 30px;
+    border-radius:24px;
+    background:linear-gradient(135deg, rgba(37,99,235,0.18), rgba(220,38,38,0.14), rgba(22,163,74,0.14)), #101827;
+    border:1px solid rgba(255,255,255,0.08);
+    text-align:center;
+    margin-bottom:30px;'>
 
-Cada partido otorga puntos así:
+    <div style='font-size:72px;margin-bottom:10px;'>
+    🏆
+    </div>
 
-- ✅ **Marcador exacto** → 3 puntos  
-- 🟡 **Resultado correcto (ganador o empate)** → 2 puntos  
-- ⚪ **Participación** → 1 punto  
+    <div style='font-size:64px;font-weight:700;color:white;line-height:1;'>
+    POLLA MUNDIAL
+    </div>
 
-### 📌 Ejemplos
+    <div style='font-size:42px;font-weight:700;color:#FACC15;margin-top:8px;'>
+    SOMOS 26
+    </div>
 
-| Predicción | Resultado real | Puntos |
-|----------|---------------|--------|
-| 2 - 1 | 2 - 1 | **3** |
-| 2 - 1 | 3 - 1 | **2** |
-| 2 - 1 | 1 - 2 | **1** |
+    <div style='margin-top:20px;font-size:20px;color:#D1D5DB;'>
+    Predice. Compite. Gana.
+    </div>
 
-👉 En caso de empate en puntos:  
-Se define por **mayor número de aciertos exactos**
+    </div>
+    """, unsafe_allow_html=True)
 
----
+    # =========================
+    # KPIs
+    # =========================
 
-## 💰 Premios por partido
+    c1, c2, c3 = st.columns(3)
 
-- Cada partido genera un **pozo independiente**
-- El valor depende de la fase
-- Se descuenta una comisión del **10%**
-- El resto se reparte entre quienes acierten el marcador exacto
+    with c1:
 
----
+        st.metric(
+            "💰 Apuesta grupos",
+            "$5.000"
+        )
 
-## 💰 Ejemplo real
+    with c2:
 
-Supongamos:
+        st.metric(
+            "🔥 Comisión",
+            "10%"
+        )
 
-- 10 jugadores  
-- Valor apuesta: **$5.000**
+    with c3:
 
-### 📊 Resultado:
+        st.metric(
+            "🏆 Jackpot",
+            "Acumulado"
+        )
 
-- 💵 Pozo bruto: **$50.000**
-- 🧾 Comisión (10%): **$5.000**
-- 🎯 Pozo a repartir: **$45.000**
+    st.markdown("<br>", unsafe_allow_html=True)
 
----
 
-### 🟢 Caso 1: Hay ganadores (3 personas)
+    st.markdown("""
+    <style>
 
-- Cada uno recibe:  
-👉 **$15.000**
+    .card-azul {
+        background: rgba(37,99,235,0.18);
+    }
 
----
+    .card-dorado {
+        background: rgba(250,204,21,0.14);
+    }
 
-### 🔴 Caso 2: NO hay ganadores
+    .card-verde {
+        background: rgba(22,163,74,0.14);
+    }
 
-👉 Los **$45.000** pasan al **JACKPOT**
+    </style>
+    """, unsafe_allow_html=True)
 
----
+    # =========================
+    # SISTEMA DE PUNTOS
+    # =========================
 
-## 🏆 Premio final (Jackpot)
+    st.subheader("⭐ Sistema de puntos")
 
-El acumulado se reparte así:
+    with st.container(border=True):
 
-- 🥇 1er lugar → **60%**  
-- 🥈 2do lugar → **30%**  
-- 🥉 3er lugar → **10%**
+        st.markdown("## ✅ MARCADOR EXACTO")
 
----
+        st.write("## 3 puntos")
 
-## ⚙️ Valores por fase
 
-| Fase | Valor |
-|------|------|
-| Grupos | $5.000 |
-| Octavos | $8.000 |
-| Cuartos | $10.000 |
-| Semifinal | $15.000 |
-| Final | $20.000 |
+    with st.container(border=True):
 
+        st.markdown("## 🟡 RESULTADO (GANADOR/EMPATE)")
+
+        st.write("## 2 puntos")
+
+
+    with st.container(border=True):
+
+        st.markdown("## ⚪ SOLO POR PARTICIPAR")
+
+        st.write("## 1 punto")
+
+    # =========================
+    # EJEMPLOS
+    # =========================
+
+    st.subheader("📊 Ejemplos")
+
+    st.table({
+
+        "Predicción": ["2 - 1", "2 - 1", "2 - 1"],
+
+        "Resultado": ["2 - 1", "3 - 1", "1 - 2"],
+
+        "Puntos": ["3", "2", "1"]
+
+    })
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # =========================
+    # PREMIOS
+    # =========================
+
+    st.subheader("💰 Sistema de premios")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+
+        st.markdown("""
+### 🟢 Si hay ganadores
+
+- Se descuenta comisión del 10%
+- El resto se divide entre los acertantes
+- Cada partido tiene su propio pozo
+""")
+
+    with c2:
+
+        st.markdown("""
+### 🔥 Si nadie gana
+
+- El premio pasa al JACKPOT (Previo cobro de la comisión)
+- El acumulado crece
+- Se reparte al final del torneo
+""")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # =========================
+    # JACKPOT FINAL
+    # =========================
+
+    st.subheader("🏆 Jackpot final")
+
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+
+        st.success("""
+### 🥇 1er lugar
+
+60%
+""")
+
+    with c2:
+
+        st.info("""
+### 🥈 2do lugar
+
+30%
+""")
+
+    with c3:
+
+        st.warning("""
+### 🥉 3er lugar
+
+10%
+""")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # =========================
+    # VALORES POR FASE
+    # =========================
+
+    st.subheader("⚽ Valores por fase")
+
+    st.table({
+
+        "Fase": [
+
+            "Grupos",
+            "Octavos",
+            "Cuartos",
+            "Semifinal",
+            "Final"
+
+        ],
+
+        "Valor": [
+
+            "$5.000",
+            "$8.000",
+            "$10.000",
+            "$15.000",
+            "$20.000"
+
+        ]
+
+    })
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # =========================
+    # REGLA IMPORTANTE
+    # =========================
+
+    st.error("""
+⏰ Las apuestas se bloquean automáticamente al iniciar cada partido.
 """)
