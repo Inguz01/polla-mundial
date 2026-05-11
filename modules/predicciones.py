@@ -123,22 +123,14 @@ def predicciones_page():
     # CALENDARIO
     # =========================
 
-    fechas_disponibles = sorted(
-        pd.to_datetime(df_part["fecha"]).dt.date.unique()
-    )
-
-    proxima_fecha = fechas_disponibles[0]
-
     fecha_sel = st.date_input(
         "📅 Selecciona una fecha",
-        value=proxima_fecha,
-        min_value=min(fechas_disponibles),
-        max_value=max(fechas_disponibles)
+        value=pd.to_datetime(proxima_fecha).date(),
+        min_value=pd.to_datetime(proxima_fecha).date(),
+        max_value=pd.to_datetime(
+            max(fechas_disponibles)
+        ).date()
     )
-
-    df_part = df_part[
-        pd.to_datetime(df_part["fecha"]).dt.date == fecha_sel
-    ]
 
     # =========================
     # FILTRAR FECHA

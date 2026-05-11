@@ -27,7 +27,14 @@ def registrar_movimientos(lista):
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     filas = [
-        [generar_id(), m["usuario_id"], fecha, m["tipo"], m["referencia"], m["monto"]]
+        [
+            generar_id(),
+            str(m["usuario_id"]).strip().lower(),  # normalizar a minúsculas
+            fecha,
+            m["tipo"],
+            m["referencia"],
+            m["monto"]
+        ]
         for m in lista
     ]
 

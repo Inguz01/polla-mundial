@@ -15,11 +15,34 @@ def worksheet_to_df(db, sheet_name):
 
         df = pd.DataFrame(data)
 
+        if df.empty:
+            return df
+
         # normalizar columnas
         df.columns = [str(c).strip().lower() for c in df.columns]
 
         # corregir nombre de columna con typo en Google Sheets
         df = df.rename(columns={"goles_visitantes": "goles_visitante"})
+
+        # eliminar filas completamente vacías que Google Sheets a veces incluye
+        df = df.dropna(how="all")
+        df = df[~df.apply(lambda r: all(str(v).strip() == "" for v in r), axis=1)]
+
+        # normalizar usuario_id a minúsculas en todas las hojas que lo tengan
+        # evita que 'Amaury' en predicciones no matchee con 'amaury' en session_state
+        if "usuario_id" in df.columns:
+            df["usuario_id"] = df["usuario_id"].astype(str).str.strip().str.lower()
+
+        # normalizar hora: Sheets puede devolver datetime.time → convertir a string "HH:MM"
+        if "hora" in df.columns:
+            def normalizar_hora(h):
+                if hasattr(h, "strftime"):        # datetime.time object
+                    return h.strftime("%H:%M")
+                h = str(h).strip()
+                if len(h) >= 8 and ":" in h:      # "HH:MM:SS" → recortar
+                    return h[:5]
+                return h                           # ya es "HH:MM" u otro
+            df["hora"] = df["hora"].apply(normalizar_hora)
 
         return df
 
@@ -27,7 +50,7 @@ def worksheet_to_df(db, sheet_name):
 
         st.error(f"Error cargando hoja {sheet_name}: {e}")
 
-        return pd.DataFrame()   
+        return pd.DataFrame()
 
 
 @st.cache_data(ttl=1800)

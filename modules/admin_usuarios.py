@@ -29,15 +29,6 @@ def admin_usuarios_page():
     df["activo"] = df["activo"].astype(int)
 
     # =========================
-    # LISTADO
-    # =========================
-
-    st.subheader("Usuarios")
-    st.dataframe(df, use_container_width=True)
-
-    st.divider()
-
-    # =========================
     # CREAR USUARIO
     # =========================
 
@@ -124,3 +115,31 @@ def admin_usuarios_page():
 
         st.success("Estado actualizado")
         st.rerun()
+
+    st.divider()
+
+    # =========================
+    # LISTADO
+    # =========================
+
+    st.subheader("Usuarios registrados")
+
+    df_view = df.copy()
+
+    # estado legible
+    df_view["estado"] = df_view["activo"].apply(
+        lambda x: "Activo" if int(x) == 1 else "Inactivo"
+    )
+
+    # columnas visibles
+    df_view = df_view[[
+        "usuario_id",
+        "rol",
+        "estado"
+    ]]
+
+    st.dataframe(
+        df_view,
+        use_container_width=True,
+        hide_index=True
+    )
