@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 from database.google_sheets import connect
 from utils.data_loader import cargar_todo
 from utils.dataframe_utils import normalizar_columnas
@@ -68,7 +69,9 @@ def admin_usuarios_page():
         db = connect()
         sheet = db.worksheet("usuarios")
 
-        nuevo_id = 1 if len(df) == 0 else int(df["id"].max()) + 1
+        # calcular nuevo ID ignorando valores no numéricos que puedan venir de Sheets
+        ids_validos = pd.to_numeric(df["id"], errors="coerce").dropna()
+        nuevo_id = int(ids_validos.max()) + 1 if len(ids_validos) > 0 else 1
 
         sheet.append_row([
             nuevo_id,

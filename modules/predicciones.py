@@ -4,6 +4,7 @@ import pytz
 from datetime import datetime
 from utils.validaciones import apuesta_abierta, validar_marcador
 from utils.saldos import saldo_usuario
+from utils.flags import bandera as url_bandera
 from database.google_sheets import connect
 from utils.helpers import generar_id
 from utils.data_loader import cargar_todo
@@ -46,15 +47,6 @@ def predicciones_page():
 
     df_pred = data["predicciones"].copy()
 
-    df_equipos = data["equipos"].copy()
-
-    mapa_codigos = dict(
-        zip(
-            df_equipos["equipo"].str.strip(),
-            df_equipos["codigo"].str.strip()
-        )
-    )
-
     saldo = saldo_usuario(usuario_actual)
 
     if saldo < 0:
@@ -79,7 +71,8 @@ def predicciones_page():
 
     tz = pytz.timezone("America/Bogota")
 
-    ahora = pd.Timestamp.now(tz).tz_localize(None)
+    # tz_convert(None) produce un timestamp naive en hora Bogotá
+    ahora = pd.Timestamp.now(tz).tz_convert(None)
 
     # =========================
     # FECHA COMPLETA PARTIDO
@@ -90,6 +83,9 @@ def predicciones_page():
         df_partidos["hora"].astype(str),
         errors="coerce"
     )
+
+    # forzar naive en todos los registros para evitar TypeError en la comparación
+    df_partidos["fecha_hora"] = df_partidos["fecha_hora"].dt.tz_localize(None)
 
     # =========================
     # SOLO PARTIDOS FUTUROS
@@ -127,14 +123,22 @@ def predicciones_page():
     # CALENDARIO
     # =========================
 
+    fechas_disponibles = sorted(
+        pd.to_datetime(df_part["fecha"]).dt.date.unique()
+    )
+
+    proxima_fecha = fechas_disponibles[0]
+
     fecha_sel = st.date_input(
         "📅 Selecciona una fecha",
-        value=pd.to_datetime(proxima_fecha).date(),
-        min_value=pd.to_datetime(proxima_fecha).date(),
-        max_value=pd.to_datetime(
-            max(fechas_disponibles)
-        ).date()
+        value=proxima_fecha,
+        min_value=min(fechas_disponibles),
+        max_value=max(fechas_disponibles)
     )
+
+    df_part = df_part[
+        pd.to_datetime(df_part["fecha"]).dt.date == fecha_sel
+    ]
 
     # =========================
     # FILTRAR FECHA
@@ -179,8 +183,8 @@ def predicciones_page():
             row.get("estado", "programado")
         )
 
-        codigo_local = mapa_codigos.get(row["equipo_local"].strip(), "xx")
-        codigo_visit = mapa_codigos.get(row["equipo_visitante"].strip(), "xx")
+        codigo_local = url_bandera(row["equipo_local"])
+        codigo_visit = url_bandera(row["equipo_visitante"])
 
         with st.container(border=True):
 
@@ -220,7 +224,7 @@ def predicciones_page():
                     f"""
                     <div style="display:flex; align-items:center;
                                 gap:8px; padding-top:8px;">
-                        <img src="https://flagcdn.com/w40/{codigo_local}.png"
+                        <img src="{codigo_local}"
                              style="width:26px; border-radius:2px; flex-shrink:0;">
                         <span style="font-size:15px; font-weight:600;">
                             {row['equipo_local']}
@@ -246,7 +250,7 @@ def predicciones_page():
                     f"""
                     <div style="display:flex; align-items:center;
                                 gap:8px; padding-top:8px;">
-                        <img src="https://flagcdn.com/w40/{codigo_visit}.png"
+                        <img src="{codigo_visit}"
                              style="width:26px; border-radius:2px; flex-shrink:0;">
                         <span style="font-size:15px; font-weight:600;">
                             {row['equipo_visitante']}
@@ -299,6 +303,7 @@ def predicciones_page():
 
         nuevas_predicciones = []
         rows_a_actualizar   = []
+        filas_a_borrar      = []
         guardados  = 0
         eliminados = 0
 
@@ -340,7 +345,8 @@ def predicciones_page():
                 guardados += 1
 
             elif fila_existente:
-                pred_sheet.delete_rows(fila_existente)
+                # recolectar filas a borrar en lugar de borrar inmediatamente
+                filas_a_borrar.append(fila_existente)
                 eliminados += 1
 
         if nuevas_predicciones:
@@ -348,6 +354,10 @@ def predicciones_page():
 
         for rango, valores in rows_a_actualizar:
             pred_sheet.update(rango, valores)
+
+        # borrar de mayor a menor para que el desplazamiento no afecte las filas pendientes
+        for fila in sorted(filas_a_borrar, reverse=True):
+            pred_sheet.delete_rows(fila)
 
         cargar_todo.clear()
 

@@ -194,6 +194,14 @@ def login_page():
             user_all.iloc[0]["password"]
         ).strip()
 
+        # Sheets puede devolver contraseñas numéricas como float ("1234.0")
+        # se normaliza a entero string para que coincida con lo que escribe el usuario
+        if not hashed.startswith("$2b$"):
+            try:
+                hashed = str(int(float(hashed)))
+            except (ValueError, TypeError):
+                pass
+
         if hashed.startswith("$2b$"):
 
             if not verificar_password(

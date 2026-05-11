@@ -1,22 +1,47 @@
 import streamlit as st
 import pandas as pd
+
 from utils.dataframe_utils import safe_int
+from utils.dataframe_utils import asegurar_columnas
 from database.google_sheets import connect
 from utils.helpers import generar_id
-#from utils.premios import calcular_premio_partido
 from utils.data_loader import cargar_todo
+from utils.flags import bandera as url_bandera
+
 
 def resultados_page():
 
-    # 🔒 CONTROL DE PERMISOS
+    # =========================
+    # PERMISOS
+    # =========================
+
     if st.session_state.get("rol") != "admin":
-        st.error("No tienes permisos para acceder a esta sección")
+
+        st.error("No tienes permisos")
+
         st.stop()
 
     st.title("Registrar resultados reales")
 
+    # =========================
+    # CSS INPUTS
+    # =========================
 
-    # ===== carga centralizada =====
+    st.markdown("""
+    <style>
+
+    div[data-testid="stTextInput"] input {
+        text-align: center !important;
+        font-size: 22px !important;
+        font-weight: 700 !important;
+    }
+
+    </style>
+    """, unsafe_allow_html=True)
+
+    # =========================
+    # CARGA DATOS
+    # =========================
 
     data = cargar_todo()
 
@@ -24,21 +49,34 @@ def resultados_page():
 
     df_result = data["resultados"].copy()
 
-    # 🔒 asegurar estructura SIEMPRE (aunque esté vacío)
-    from utils.dataframe_utils import asegurar_columnas
-
     df_result = asegurar_columnas(
         df_result,
         ["partido_id", "goles_local", "goles_visitante"]
     )
 
-    # 🔥 asegurar tipos correctos
-    df_result["partido_id"] = df_result["partido_id"].astype(str)
-    df_result["goles_local"] = df_result["goles_local"].apply(safe_int)
-    df_result["goles_visitante"] = df_result["goles_visitante"].apply(safe_int)
+    # =========================
+    # LIMPIEZA
+    # =========================
 
-    # ==============================
+    df_result["partido_id"] = (
+        df_result["partido_id"]
+        .astype(str)
+        .str.strip()
+    )
 
+    df_result["goles_local"] = (
+        df_result["goles_local"]
+        .apply(safe_int)
+    )
+
+    df_result["goles_visitante"] = (
+        df_result["goles_visitante"]
+        .apply(safe_int)
+    )
+
+    # =========================
+    # VALIDAR PARTIDOS
+    # =========================
 
     if len(df_partidos) == 0:
 
@@ -46,256 +84,412 @@ def resultados_page():
 
         return
 
+    # =========================
+    # FECHAS DISPONIBLES
+    # =========================
 
-    fechas = sorted(df_partidos["fecha"].unique())
-
-
-    fecha_sel = st.selectbox(
-
-        "Seleccione fecha",
-
-        fechas
-
+    fechas_disponibles = sorted(
+        df_partidos["fecha"].unique()
     )
 
+    # =========================
+    # PRÓXIMA FECHA
+    # =========================
+
+    proxima_fecha = fechas_disponibles[0]
+
+    # =========================
+    # CALENDARIO
+    # =========================
+
+    fecha_sel = st.date_input(
+        "📅 Selecciona una fecha",
+        value=pd.to_datetime(proxima_fecha).date(),
+        min_value=pd.to_datetime(
+            min(fechas_disponibles)
+        ).date(),
+        max_value=pd.to_datetime(
+            max(fechas_disponibles)
+        ).date()
+    )
+
+    # =========================
+    # FILTRAR FECHA
+    # =========================
 
     df_partidos = df_partidos[
-
-        df_partidos["fecha"] == fecha_sel
-
+        pd.to_datetime(df_partidos["fecha"]).dt.date
+        == fecha_sel
     ]
 
+    if len(df_partidos) == 0:
+
+        st.warning("No hay partidos para esta fecha")
+
+        return
+
+    st.write("Seleccione los partidos a registrar")
 
     resultados = []
 
-
-    h1, h2 = st.columns([4,3])
-
-    h1.write("Partido")
-
-    h2.write("Resultado real")
-
-    st.divider()
-
-    st.subheader("Recalcular partido")
-
-    # crear label 
-    df_partidos["label"] = (
-        df_partidos["equipo_local"] + " vs " +
-        df_partidos["equipo_visitante"] +
-        " (ID: " + df_partidos["id"].astype(str) + ")"
-    )
-
-    # mapa label → id
-    mapa_partidos = dict(zip(df_partidos["label"], df_partidos["id"]))
-
-    # select 
-    label_sel = st.selectbox(
-        "Selecciona partido a recalcular",
-        list(mapa_partidos.keys())
-    )
-
-    # recuperar id real
-    partido_recalc = mapa_partidos[label_sel]
+    # =========================
+    # LOOP PARTIDOS
+    # =========================
 
     for _, row in df_partidos.iterrows():
 
-        col_partido, col_score = st.columns([4,3])
-
+        key_check = f"recalc_{row['id']}"
 
         key_local = f"res_local_{row['id']}"
 
         key_visit = f"res_visit_{row['id']}"
 
-
         resultado_existente = df_result[
-
-            df_result["partido_id"].astype(str)
-
+            df_result["partido_id"]
             == str(row["id"])
-
         ]
 
+        ya_registrado = (
+            len(resultado_existente) > 0
+        )
 
-        if len(resultado_existente) > 0:
+        # =========================
+        # DEFAULTS
+        # =========================
 
-            local_default = safe_int(
+        if ya_registrado:
 
-                resultado_existente.iloc[0]["goles_local"]
+            recalcular_default = False
 
+            goles_local_default = str(
+                safe_int(
+                    resultado_existente.iloc[0]["goles_local"]
+                )
             )
 
-            visit_default = safe_int(
-
-                resultado_existente.iloc[0]["goles_visitante"]
-
+            goles_visit_default = str(
+                safe_int(
+                    resultado_existente.iloc[0]["goles_visitante"]
+                )
             )
 
         else:
 
-            local_default = 0
+            recalcular_default = True
 
-            visit_default = 0
+            goles_local_default = "0"
 
+            goles_visit_default = "0"
+
+        # =========================
+        # SESSION STATE
+        # =========================
+
+        if key_check not in st.session_state:
+
+            st.session_state[key_check] = (
+                recalcular_default
+            )
 
         if key_local not in st.session_state:
 
-            st.session_state[key_local] = local_default
-
+            st.session_state[key_local] = (
+                goles_local_default
+            )
 
         if key_visit not in st.session_state:
 
-            st.session_state[key_visit] = visit_default
-
-
-        with col_partido:
-
-            st.write(
-
-                f"{row['equipo_local']} vs {row['equipo_visitante']}"
-
+            st.session_state[key_visit] = (
+                goles_visit_default
             )
 
+        # =========================
+        # FLAGS
+        # =========================
 
-        with col_score:
+        codigo_local = url_bandera(
+            row["equipo_local"]
+        )
 
-            c1, c2, c3 = st.columns([1,0.3,1])
+        codigo_visit = url_bandera(
+            row["equipo_visitante"]
+        )
 
+        # =========================
+        # CARD
+        # =========================
 
-            with c1:
+        with st.container(border=True):
 
-                goles_local = st.number_input(
+            # ─────────────────────
+            # FECHA / HORA
+            # ─────────────────────
 
-                    " ",
+            c_fecha, c_hora = st.columns(2)
 
-                    min_value=0,
+            with c_fecha:
 
-                    max_value=20,
-
-                    step=1,
-
-                    format="%d",
-
-                    key=key_local
-
+                st.caption(
+                    f"📅 {row['fecha']}"
                 )
 
+            with c_hora:
 
-            with c2:
+                st.caption(
+                    f"⏰ {row['hora']}"
+                )
+
+            # ─────────────────────
+            # ESTADO
+            # ─────────────────────
+
+            if ya_registrado:
+
+                st.warning("""
+⚠️ Resultado ya registrado.
+""")
+
+            else:
+
+                st.success(
+                    "🟢 Pendiente por registrar"
+                )
+
+            # ─────────────────────
+            # CHECKBOX
+            # ─────────────────────
+
+            recalcular = st.checkbox(
+                (
+                    "Recalcular partido"
+                    if ya_registrado
+                    else "Registrar resultado"
+                ),
+                key=key_check
+            )
+
+            # ─────────────────────
+            # LOCAL
+            # ─────────────────────
+
+            c_info_l, c_num_l = st.columns([3, 1])
+
+            with c_info_l:
 
                 st.markdown(
-
-                    "<div style='text-align:center;margin-top:8px'>-</div>",
-
+                    f"""
+                    <div style="display:flex; align-items:center;
+                                gap:8px; padding-top:8px;">
+                        <img src="{codigo_local}"
+                            style="width:26px; border-radius:2px; flex-shrink:0;">
+                        <span style="font-size:15px; font-weight:600;">
+                            {row['equipo_local']}
+                        </span>
+                    </div>
+                    """,
                     unsafe_allow_html=True
-
                 )
 
+            with c_num_l:
 
-            with c3:
-
-                goles_visitante = st.number_input(
-
-                    " ",
-
-                    min_value=0,
-
-                    max_value=20,
-
-                    step=1,
-
-                    format="%d",
-
-                    key=key_visit
-
+                val_local = st.text_input(
+                    "Local",
+                    key=key_local,
+                    label_visibility="collapsed",
+                    max_chars=2,
+                    disabled=not recalcular
                 )
 
+            # ─────────────────────
+            # VISITANTE
+            # ─────────────────────
 
-        resultados.append({
+            c_info_v, c_num_v = st.columns([3, 1])
 
-            "partido_id": row["id"],
+            with c_info_v:
 
-            "goles_local": goles_local,
+                st.markdown(
+                    f"""
+                    <div style="display:flex; align-items:center;
+                                gap:8px; padding-top:8px;">
+                        <img src="{codigo_visit}"
+                            style="width:26px; border-radius:2px; flex-shrink:0;">
+                        <span style="font-size:15px; font-weight:600;">
+                            {row['equipo_visitante']}
+                        </span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-            "goles_visitante": goles_visitante
+            with c_num_v:
 
-        })
+                val_visit = st.text_input(
+                    "Visitante",
+                    key=key_visit,
+                    label_visibility="collapsed",
+                    max_chars=2,
+                    disabled=not recalcular
+                )
 
+            resultados.append({
+
+                "partido_id": row["id"],
+
+                "recalcular": recalcular,
+
+                "goles_local": val_local,
+
+                "goles_visitante": val_visit,
+
+                "ya_registrado": ya_registrado
+
+            })
+
+            st.markdown(
+                "<br>",
+                unsafe_allow_html=True
+            )
 
     st.divider()
 
-
+    # =========================
+    # GUARDAR
+    # =========================
 
     if st.button("Guardar resultados"):
 
+        # =========================
+        # VALIDAR INPUTS
+        # =========================
+
+        for r in resultados:
+
+            if not r["recalcular"]:
+
+                continue
+
+            for campo in [
+
+                r["goles_local"],
+
+                r["goles_visitante"]
+
+            ]:
+
+                if not campo.strip().isdigit():
+
+                    st.error(
+                        "Solo se permiten números enteros"
+                    )
+
+                    st.stop()
+
+            gl = int(r["goles_local"].strip())
+
+            gv = int(r["goles_visitante"].strip())
+
+            if gl > 20 or gv > 20:
+
+                st.error(
+                    "No puedes ingresar un marcador mayor a 20"
+                )
+
+                st.stop()
+
+        # =========================
+        # CONEXIÓN
+        # =========================
+
         try:
+
             db = connect()
+
         except Exception:
-            st.error("Error de conexión con Google Sheets")
+
+            st.error(
+                "Error de conexión con Google Sheets"
+            )
 
             return
 
         sheet = db.worksheet("resultados")
 
-        resultados_existentes = sheet.get_all_records()
-
+        resultados_existentes = (
+            sheet.get_all_records()
+        )
 
         guardados = 0
 
+        # =========================
+        # LOOP GUARDAR
+        # =========================
 
         for r in resultados:
 
-            partido_df = df_partidos[df_partidos["id"] == r["partido_id"]]
+            if not r["recalcular"]:
+
+                continue
+
+            partido_df = df_partidos[
+                df_partidos["id"]
+                == r["partido_id"]
+            ]
 
             if len(partido_df) == 0:
+
                 continue
 
             partido = partido_df.iloc[0]
 
-            # 🔒 bloquear si ya está liquidado
-            if partido.get("estado") == "liquidado":
-                st.warning(f"Partido {r['partido_id']} ya fue liquidado")
-                continue
+            # 🔒 BLOQUEAR SI YA LIQUIDADO
 
+            if partido.get("estado") == "liquidado":
+
+                st.warning(
+                    f"Partido {r['partido_id']} ya fue liquidado"
+                )
+
+                continue
 
             fila_existente = None
 
+            for i, p in enumerate(
+                resultados_existentes
+            ):
 
-            for i, p in enumerate(resultados_existentes):
-
-                if str(p["partido_id"]) == str(r["partido_id"]):
+                if str(
+                    p["partido_id"]
+                ) == str(r["partido_id"]):
 
                     fila_existente = i + 2
 
                     break
 
+            gl = int(
+                r["goles_local"].strip()
+            )
 
-            # actualizar resultado existente
+            gv = int(
+                r["goles_visitante"].strip()
+            )
+
+            # =====================
+            # UPDATE
+            # =====================
 
             if fila_existente:
 
-
                 sheet.update(
-
                     f"C{fila_existente}:D{fila_existente}",
-
-                    [[
-
-                        int(r["goles_local"]),
-
-                        int(r["goles_visitante"])
-
-                    ]]
-
+                    [[gl, gv]]
                 )
 
-            
-
-
-            # crear nuevo resultado
+            # =====================
+            # INSERT
+            # =====================
 
             else:
-
 
                 sheet.append_row([
 
@@ -303,27 +497,34 @@ def resultados_page():
 
                     r["partido_id"],
 
-                    int(r["goles_local"]),
+                    gl,
 
-                    int(r["goles_visitante"])
+                    gv
 
                 ])
 
-
             guardados += 1
 
-            cargar_todo.clear()
+            # =====================
+            # MARCAR LIQUIDADO
+            # =====================
 
-            #resultado_financiero = calcular_premio_partido(r["partido_id"])
-
-            # marcar partido como liquidado
-            sheet_partidos = db.worksheet("partidos")
+            sheet_partidos = db.worksheet(
+                "partidos"
+            )
 
             fila_partido = df_partidos[
-                df_partidos["id"] == r["partido_id"]
+                df_partidos["id"]
+                == r["partido_id"]
             ].index[0] + 2
 
-            
-            sheet_partidos.update(f"I{fila_partido}", [["liquidado"]])
+            sheet_partidos.update(
+                f"I{fila_partido}",
+                [["liquidado"]]
+            )
 
-        st.success(f"{guardados} resultados guardados")
+        cargar_todo.clear()
+
+        st.success(
+            f"{guardados} resultados guardados"
+        )

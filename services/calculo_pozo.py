@@ -1,4 +1,5 @@
 from settings import PORCENTAJE_ADMIN
+from utils.dataframe_utils import safe_int
 
 
 def calcular_pozo(total_recaudado):
@@ -16,14 +17,17 @@ def calcular_pozo(total_recaudado):
     return admin, pozo
 
 
-def liquidar_partido(df_apuestas_partido, resultado_real, jackpot_actual=0):
+def liquidar_partido(df_apuestas_partido, goles_local_real, goles_visitante_real, jackpot_actual=0):
 
     total_apostado = df_apuestas_partido["valor"].sum()
 
     admin, bolsa = calcular_pozo(total_apostado)
 
+    # usar las columnas reales del modelo de datos (goles_local / goles_visitante)
+    # en lugar de la columna "prediccion" que no existe en el sistema
     ganadores = df_apuestas_partido[
-        df_apuestas_partido["prediccion"] == resultado_real
+        (df_apuestas_partido["goles_local"].apply(safe_int) == int(goles_local_real)) &
+        (df_apuestas_partido["goles_visitante"].apply(safe_int) == int(goles_visitante_real))
     ]
 
     num_ganadores = len(ganadores)

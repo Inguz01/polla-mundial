@@ -22,7 +22,6 @@ def bandera(pais):
         "ecuador": "ec",
         "venezuela": "ve",
         "bolivia": "bo",
-
         "mexico": "mx",
         "canada": "ca",
         "estados unidos": "us",
@@ -38,7 +37,11 @@ def bandera(pais):
         "alemania": "de",
         "italia": "it",
         "portugal": "pt",
-        "inglaterra": "gb",
+        # Escocia e Inglaterra tienen códigos distintos en flagcdn
+        "inglaterra": "gb-eng",
+        "escocia": "gb-sct",
+        "gales": "gb-wls",
+        "irlanda del norte": "gb-nir",
         "paises bajos": "nl",
         "holanda": "nl",
         "belgica": "be",
@@ -49,6 +52,10 @@ def bandera(pais):
         "republica checa": "cz",
         "polonia": "pl",
         "dinamarca": "dk",
+        "suecia": "se",
+        "noruega": "no",
+        "austria": "at",
+        "uzbekistan": "uz",
 
         # África
         "marruecos": "ma",
@@ -63,6 +70,7 @@ def bandera(pais):
         "tunez": "tn",
         "sudafrica": "za",
         "cabo verde": "cv",
+        "rd congo": "cd",
 
         # Asia / Oceanía
         "japon": "jp",
@@ -70,9 +78,13 @@ def bandera(pais):
         "arabia saudita": "sa",
         "qatar": "qa",
         "iran": "ir",
+        "irak": "iq",
+        "jordania": "jo",
+        "turquia": "tr",
         "australia": "au",
         "nueva zelanda": "nz",
         "nueva zelandia": "nz",
+        "curazao": "cw",
     }
 
     pais_limpio = limpiar_texto(pais)

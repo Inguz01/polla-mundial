@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import pytz
 
 
 # ==============================
@@ -18,7 +19,11 @@ def apuesta_abierta(fecha, hora, estado=None):
 
         limite = fecha_hora - timedelta(minutes=5)
 
-        return datetime.now() < limite
+        # usar hora de Colombia para no bloquear 5h antes en servidores UTC
+        tz = pytz.timezone("America/Bogota")
+        ahora = datetime.now(tz).replace(tzinfo=None)
+
+        return ahora < limite
 
     except:
         # si hay error en datos → mejor bloquear

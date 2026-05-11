@@ -73,6 +73,10 @@ def resultados_partido_page():
         ascending=False
     )
 
+    # cargar config una sola vez antes del loop para evitar N llamadas repetidas
+    from utils.config import obtener_config
+    config_cache = obtener_config()
+
     for _, row in df_res.iterrows():
 
         partido_id = str(row["partido_id"])
@@ -101,13 +105,13 @@ def resultados_partido_page():
         # POZO
         # =========================
 
-        valor = valor_apuesta_por_fase(fase)
+        valor = valor_apuesta_por_fase(fase, config=config_cache)
 
         if valor <= 0:
             valor = 5000
 
         pozo_bruto = participantes * valor
-        comision   = round(pozo_bruto * porcentaje_admin(), 2)
+        comision   = round(pozo_bruto * porcentaje_admin(config=config_cache), 2)
         pozo       = round(pozo_bruto - comision, 2)
 
         # =========================
@@ -204,6 +208,33 @@ def resultados_partido_page():
                     ].copy()
 
                     # =========================
+                    # RECALCULAR GANADORES DEL PARTIDO QUE SE ESTÁ LIQUIDANDO
+                    # (no usar la variable del loop de construcción de tabla,
+                    #  que puede contener datos del último partido iterado)
+                    # =========================
+
+                    res_partido = df_res[
+                        df_res["partido_id"].astype(str) == str(partido_id)
+                    ]
+
+                    if not res_partido.empty:
+                        real_local_liq  = safe_int(res_partido.iloc[0]["goles_local"])
+                        real_visit_liq  = safe_int(res_partido.iloc[0]["goles_visitante"])
+                    else:
+                        real_local_liq  = row["resultado"].split("-")[0]
+                        real_visit_liq  = row["resultado"].split("-")[1]
+                        real_local_liq  = safe_int(real_local_liq)
+                        real_visit_liq  = safe_int(real_visit_liq)
+
+                    df_pred_part["goles_local"]     = df_pred_part["goles_local"].apply(safe_int)
+                    df_pred_part["goles_visitante"] = df_pred_part["goles_visitante"].apply(safe_int)
+
+                    ganadores_liq = df_pred_part[
+                        (df_pred_part["goles_local"]     == real_local_liq) &
+                        (df_pred_part["goles_visitante"] == real_visit_liq)
+                    ]
+
+                    # =========================
                     # REVERSAR TODO
                     # =========================
 
@@ -264,7 +295,7 @@ def resultados_partido_page():
 
                         premio = row["premio"]
 
-                        for _, g in ganadores.iterrows():
+                        for _, g in ganadores_liq.iterrows():
 
                             movimientos.append({
                                 "usuario_id": g["usuario_id"],

@@ -21,9 +21,13 @@ def obtener_config():
 
 
 
-def valor_apuesta_por_fase(fase):
-
-    config = obtener_config()
+def valor_apuesta_por_fase(fase, config=None):
+    """
+    Recibe opcionalmente el dict de config ya cargado para evitar
+    llamadas repetidas a obtener_config() dentro de loops.
+    """
+    if config is None:
+        config = obtener_config()
 
     mapa = {
 
@@ -43,8 +47,12 @@ def valor_apuesta_por_fase(fase):
 
 
 
-def porcentaje_admin():
-
-    config = obtener_config()
+def porcentaje_admin(config=None):
+    """
+    Recibe opcionalmente el dict de config ya cargado para evitar
+    llamadas repetidas a obtener_config() dentro de loops.
+    """
+    if config is None:
+        config = obtener_config()
 
     return config.get("porcentaje_admin", 0.10)
