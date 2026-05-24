@@ -222,71 +222,6 @@ def predicciones_page():
 
             
 
-            # ── MINI PANEL DEL PARTIDO ─────────────────────
-
-            predicciones_partido = data["predicciones"].copy()
-
-            if not predicciones_partido.empty and "partido_id" in predicciones_partido.columns:
-
-                predicciones_partido = predicciones_partido[
-                    predicciones_partido["partido_id"].astype(str)
-                    == str(row["id"])
-                ]
-
-            else:
-
-                predicciones_partido = pd.DataFrame()
-
-            participantes = 0
-
-            if not predicciones_partido.empty:
-
-                if "participa" in predicciones_partido.columns:
-
-                    participantes = predicciones_partido[
-                        predicciones_partido["participa"].astype(str) == "1"
-                    ]["usuario_id"].nunique()
-
-                elif "usuario_id" in predicciones_partido.columns:
-
-                    participantes = predicciones_partido[
-                        "usuario_id"
-                    ].nunique()
-
-            valor_apuesta = valor_apuesta_por_fase(
-                row["fase"]
-            )
-
-            pozo_total = participantes * valor_apuesta
-
-            premio_estimado = pozo_total * (1 - porcentaje_admin())
-
-            if participantes > 0:
-
-                col1, col2, col3 = st.columns(3)
-
-                with col1:
-                    st.metric(
-                        "👥 Participantes",
-                        participantes
-                    )
-
-                with col2:
-                    st.metric(
-                        "💰 Pozo",
-                        f"${pozo_total:,.0f}"
-                    )
-
-                with col3:
-                    st.metric(
-                        "🏆 Premio Est.",
-                        f"${premio_estimado:,.0f}"
-                    )
-
-            st.caption(
-                f"Comisión administrativa: "
-                f"{porcentaje_admin()*100:.0f}%"
-            )
 
             # ── Estado ───────────────────────────────
 
@@ -356,6 +291,8 @@ def predicciones_page():
                     max_chars=2
                 )
 
+
+
             c_info_v, c_num_v = st.columns([3, 1])
 
             with c_info_v:
@@ -381,6 +318,71 @@ def predicciones_page():
                     label_visibility="collapsed",
                     max_chars=2
                 )
+            # ── MINI PANEL DEL PARTIDO ─────────────────────
+
+            predicciones_partido = data["predicciones"].copy()
+
+            if not predicciones_partido.empty and "partido_id" in predicciones_partido.columns:
+
+                predicciones_partido = predicciones_partido[
+                    predicciones_partido["partido_id"].astype(str)
+                    == str(row["id"])
+                ]
+
+            else:
+
+                predicciones_partido = pd.DataFrame()
+
+            participantes = 0
+
+            if not predicciones_partido.empty:
+
+                if "participa" in predicciones_partido.columns:
+
+                    participantes = predicciones_partido[
+                        predicciones_partido["participa"].astype(str) == "1"
+                    ]["usuario_id"].nunique()
+
+                elif "usuario_id" in predicciones_partido.columns:
+
+                    participantes = predicciones_partido[
+                        "usuario_id"
+                    ].nunique()
+
+            valor_apuesta = valor_apuesta_por_fase(
+                row["fase"]
+            )
+
+            pozo_total = participantes * valor_apuesta
+
+            premio_estimado = pozo_total * (1 - porcentaje_admin())
+
+            if participantes > 0:
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.metric(
+                        "👥 Participantes",
+                        participantes
+                    )
+
+                with col2:
+                    st.metric(
+                        "💰 Pozo",
+                        f"${pozo_total:,.0f}"
+                    )
+
+                with col3:
+                    st.metric(
+                        "🏆 Premio Est.",
+                        f"${premio_estimado:,.0f}"
+                    )
+
+            st.caption(
+                f"Comisión administrativa: "
+                f"{porcentaje_admin()*100:.0f}%"
+            )
 
             resultados.append({
                 "partido_id":      row["id"],
