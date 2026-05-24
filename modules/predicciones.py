@@ -1,13 +1,15 @@
 import streamlit as st
 import pandas as pd
-import pytz
-from datetime import datetime
 from utils.validaciones import apuesta_abierta, validar_marcador
 from utils.saldos import saldo_usuario
 from utils.flags import bandera as url_bandera
 from database.google_sheets import connect
 from utils.helpers import generar_id
 from utils.data_loader import cargar_todo
+from utils.config import (
+    valor_apuesta_por_fase,
+    porcentaje_admin
+)
 
 
 def safe_int(value):
@@ -69,14 +71,26 @@ def predicciones_page():
     # TIMEZONE
     # =========================
 
-    tz = pytz.timezone("America/Bogota")
+    #tz = pytz.timezone("America/Bogota")
 
+    TZ = "America/Bogota"
     # tz_convert(None) produce un timestamp naive en hora Bogotá
-    ahora = pd.Timestamp.now(tz).tz_convert(None)
+    #ahora = pd.Timestamp.now(tz).tz_convert(None)
+
+    ahora = pd.Timestamp.now(tz=TZ)
 
     # =========================
     # FECHA COMPLETA PARTIDO
     # =========================
+
+    #df_partidos["fecha_hora"] = pd.to_datetime(
+     #   df_partidos["fecha"].astype(str) + " " +
+      #  df_partidos["hora"].astype(str),
+       # errors="coerce"
+    #)
+
+    # forzar naive en todos los registros para evitar TypeError en la comparación
+    #df_partidos["fecha_hora"] = df_partidos["fecha_hora"].dt.tz_localize(None)
 
     df_partidos["fecha_hora"] = pd.to_datetime(
         df_partidos["fecha"].astype(str) + " " +
@@ -84,8 +98,15 @@ def predicciones_page():
         errors="coerce"
     )
 
-    # forzar naive en todos los registros para evitar TypeError en la comparación
-    df_partidos["fecha_hora"] = df_partidos["fecha_hora"].dt.tz_localize(None)
+    # asignar timezone Bogotá
+    df_partidos["fecha_hora"] = (
+        df_partidos["fecha_hora"]
+        .dt.tz_localize(TZ)
+    )
+
+    df_partidos["horas_restantes"] = (
+    df_partidos["fecha_hora"] - ahora
+    ).dt.total_seconds() / 3600
 
     # =========================
     # SOLO PARTIDOS FUTUROS
@@ -123,6 +144,11 @@ def predicciones_page():
     # CALENDARIO
     # =========================
 
+    st.info(
+    "⏳ Los pronósticos se habilitan únicamente "
+    "24 horas antes del inicio de cada partido."
+    )
+    
     fecha_sel = st.date_input(
         "📅 Selecciona una fecha",
         value=pd.to_datetime(proxima_fecha).date(),
@@ -175,6 +201,13 @@ def predicciones_page():
             row.get("estado", "programado")
         )
 
+        horas_restantes = row["horas_restantes"]
+
+        habilitado_24h = horas_restantes <= 24
+
+        puede_apostar = abierto and habilitado_24h
+
+
         codigo_local = url_bandera(row["equipo_local"])
         codigo_visit = url_bandera(row["equipo_visitante"])
 
@@ -187,27 +220,115 @@ def predicciones_page():
             with c_hora:
                 st.caption(f"⏰ {row['hora']}")
 
-            # ── Estado ───────────────────────────────
-            if abierto:
-                st.success("🟢 Apuestas abiertas")
+            
+
+            # ── MINI PANEL DEL PARTIDO ─────────────────────
+
+            predicciones_partido = data["predicciones"].copy()
+
+            if not predicciones_partido.empty and "partido_id" in predicciones_partido.columns:
+
+                predicciones_partido = predicciones_partido[
+                    predicciones_partido["partido_id"].astype(str)
+                    == str(row["id"])
+                ]
+
             else:
+
+                predicciones_partido = pd.DataFrame()
+
+            participantes = 0
+
+            if not predicciones_partido.empty:
+
+                if "participa" in predicciones_partido.columns:
+
+                    participantes = predicciones_partido[
+                        predicciones_partido["participa"].astype(str) == "1"
+                    ]["usuario_id"].nunique()
+
+                elif "usuario_id" in predicciones_partido.columns:
+
+                    participantes = predicciones_partido[
+                        "usuario_id"
+                    ].nunique()
+
+            valor_apuesta = valor_apuesta_por_fase(
+                row["fase"]
+            )
+
+            pozo_total = participantes * valor_apuesta
+
+            premio_estimado = pozo_total * (1 - porcentaje_admin())
+
+            if participantes > 0:
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.metric(
+                        "👥 Participantes",
+                        participantes
+                    )
+
+                with col2:
+                    st.metric(
+                        "💰 Pozo",
+                        f"${pozo_total:,.0f}"
+                    )
+
+                with col3:
+                    st.metric(
+                        "🏆 Premio Est.",
+                        f"${premio_estimado:,.0f}"
+                    )
+
+            st.caption(
+                f"Comisión administrativa: "
+                f"{porcentaje_admin()*100:.0f}%"
+            )
+
+            # ── Estado ───────────────────────────────
+
+            if not abierto:
+
                 st.error("🔒 Partido iniciado")
+
+            elif puede_apostar:
+
+                st.success("🟢 Pronósticos habilitados")
+
+            else:
+
+                tiempo_restante = row["fecha_hora"] - ahora
+
+                dias = tiempo_restante.days
+                horas = tiempo_restante.seconds // 3600
+                minutos = (tiempo_restante.seconds % 3600) // 60
+
+                if dias > 0:
+
+                    st.warning(
+                        f"⏳ Pronósticos disponibles en "
+                        f"{dias}d {horas}h"
+                    )
+
+                else:
+
+                    st.warning(
+                        f"⏳ Pronósticos disponibles en "
+                        f"{horas}h {minutos}m"
+                    )
 
             # ── Participar ───────────────────────────
             participa = st.checkbox(
                 "Participar",
                 key=key_check,
-                disabled=not abierto
+                disabled=not puede_apostar
             )
 
             # ── MARCADOR ─────────────────────────────
-            #
-            #  🇩🇪  Alemania        [ 2 ]
-            #  🇨🇼  Curazao         [ 0 ]
-            #
-            # text_input: campo libre, sin botones +/-, el usuario
-            # escribe el número directamente. Simple y funciona igual
-            # en web y mobile.
+
 
             c_info_l, c_num_l = st.columns([3, 1])
 
@@ -230,7 +351,7 @@ def predicciones_page():
                 val_local = st.text_input(
                     "Local",
                     key=key_local,
-                    disabled=(not participa or not abierto),
+                    disabled=(not participa or not puede_apostar),
                     label_visibility="collapsed",
                     max_chars=2
                 )
@@ -256,7 +377,7 @@ def predicciones_page():
                 val_visit = st.text_input(
                     "Visitante",
                     key=key_visit,
-                    disabled=(not participa or not abierto),
+                    disabled=(not participa or not puede_apostar),
                     label_visibility="collapsed",
                     max_chars=2
                 )

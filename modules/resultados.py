@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-
+from zoneinfo import ZoneInfo
 from utils.dataframe_utils import safe_int
 from utils.dataframe_utils import asegurar_columnas
 from database.google_sheets import connect
@@ -46,6 +46,26 @@ def resultados_page():
     data = cargar_todo()
 
     df_partidos = data["partidos"].copy()
+
+    TZ = ZoneInfo("America/Bogota")
+
+    ahora = pd.Timestamp.now(tz=TZ)
+
+    df_partidos["fecha_hora"] = pd.to_datetime(
+        df_partidos["fecha"].astype(str) + " " +
+        df_partidos["hora"].astype(str),
+        errors="coerce"
+    )
+
+    df_partidos["fecha_hora"] = (
+        df_partidos["fecha_hora"]
+        .dt.tz_localize("America/Bogota")
+    )
+
+    df_partidos["habilita_resultado"] = (
+        df_partidos["fecha_hora"] +
+        pd.Timedelta(hours=2)
+    )
 
     df_result = data["resultados"].copy()
 
@@ -137,6 +157,10 @@ def resultados_page():
     # =========================
 
     for _, row in df_partidos.iterrows():
+
+        puede_registrar_resultado = (
+            ahora >= row["habilita_resultado"]
+        )
 
         key_check = f"recalc_{row['id']}"
 
@@ -246,14 +270,44 @@ def resultados_page():
             if ya_registrado:
 
                 st.warning("""
-⚠️ Resultado ya registrado.
-""")
+            ⚠️ Resultado ya registrado.
+            """)
 
             else:
 
-                st.success(
-                    "🟢 Pendiente por registrar"
-                )
+                if puede_registrar_resultado:
+
+                    st.success(
+                        "🟢 Registro habilitado"
+                    )
+
+                else:
+
+                    restante = (
+                        row["habilita_resultado"] - ahora
+                    )
+
+                    dias = restante.days
+
+                    horas = restante.seconds // 3600
+
+                    minutos = (
+                        restante.seconds % 3600
+                    ) // 60
+
+                    if dias > 0:
+
+                        st.warning(
+                            f"⏳ Resultado habilitado en "
+                            f"{dias}d {horas}h"
+                        )
+
+                    else:
+
+                        st.warning(
+                            f"⏳ Resultado habilitado en "
+                            f"{horas}h {minutos}m"
+                        )
 
             # ─────────────────────
             # CHECKBOX
@@ -265,7 +319,8 @@ def resultados_page():
                     if ya_registrado
                     else "Registrar resultado"
                 ),
-                key=key_check
+                key=key_check,
+                disabled=not puede_registrar_resultado
             )
 
             # ─────────────────────
@@ -297,7 +352,10 @@ def resultados_page():
                     key=key_local,
                     label_visibility="collapsed",
                     max_chars=2,
-                    disabled=not recalcular
+                    disabled=(
+                        not recalcular or
+                        not puede_registrar_resultado
+                    )
                 )
 
             # ─────────────────────
@@ -357,7 +415,15 @@ def resultados_page():
     # GUARDAR
     # =========================
 
-    if st.button("Guardar resultados"):
+    if st.button(
+        "Guardar resultados",
+        disabled=not any(
+            ahora >= p
+            for p in df_partidos[
+                "habilita_resultado"
+            ]
+        )
+    ):
 
         # =========================
         # VALIDAR INPUTS

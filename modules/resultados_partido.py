@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-
+from zoneinfo import ZoneInfo   
 from utils.data_loader import cargar_todo
 from utils.dataframe_utils import safe_int
 from utils.config import valor_apuesta_por_fase, porcentaje_admin
@@ -12,6 +12,9 @@ def resultados_partido_page():
     st.title("Resultados por partido")
 
     data = cargar_todo()
+
+    TZ = ZoneInfo("America/Bogota")
+    ahora = pd.Timestamp.now(tz=TZ)
 
     df_pred = data["predicciones"].copy()
     df_res  = data["resultados"].copy()
@@ -141,6 +144,35 @@ def resultados_partido_page():
             (df_mov["tipo"] == "comision")
         ].empty
 
+        puede_reliquidar = False
+
+        if liquidado:
+
+            mov_liq = df_mov[
+                (df_mov["referencia"].astype(str) == ref) &
+                (df_mov["tipo"] == "comision")
+            ]
+
+            if not mov_liq.empty:
+
+                fecha_liq = mov_liq.iloc[0].get(
+                    "fecha_liquidacion"
+                )
+
+                if pd.notna(fecha_liq):
+
+                    fecha_liq = pd.Timestamp(fecha_liq)
+
+                    if fecha_liq.tzinfo is None:
+
+                        fecha_liq = fecha_liq.tz_localize(
+                            "America/Bogota"
+                        )
+
+                    limite = fecha_liq + pd.Timedelta(minutes=10)
+
+                    puede_reliquidar = ahora <= limite
+
         tabla.append({
             "partido_id": partido_id,
             "partido": partido,
@@ -152,9 +184,12 @@ def resultados_partido_page():
             "ganadores": num_ganadores,
             "premio": premio,
             "jackpot": pozo if num_ganadores == 0 else 0,
+            "puede_reliquidar": puede_reliquidar,
             "liquidado": liquidado
+            
         })
 
+        
     if len(tabla) == 0:
         st.warning("No hay partidos con participantes")
         return
@@ -189,11 +224,22 @@ def resultados_partido_page():
 
             if row["liquidado"]:
 
-                c2.success("Liquidado")
+                if row["puede_reliquidar"]:
 
-            else:
+                    c2.warning("🟡 Editable")
 
-                if c2.button("Liquidar", key=row["partido_id"]):
+                else:
+
+                    c2.success("🔒 Final")
+
+            if c2.button(
+                "🔄 Reliquidar" if row["liquidado"] else "✅ Liquidar",
+                key=row["partido_id"],
+                disabled=(
+                    row["liquidado"] and
+                    not row["puede_reliquidar"]
+                )
+                ):
 
                     ref = f"partido_{row['partido_id']}"
 
@@ -286,7 +332,8 @@ def resultados_partido_page():
                         "usuario_id": "admin",
                         "tipo": "comision",
                         "referencia": ref,
-                        "monto": row["comision"]
+                        "monto": row["comision"],
+                        "fecha_liquidacion": str(ahora)
                     })
 
                     # PREMIOS

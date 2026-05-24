@@ -32,9 +32,25 @@ def movimientos_page():
     st.subheader("Registrar pago o ajuste")
 
 
-    if len(df) > 0:
+    df_usuarios = data["usuarios"].copy()
 
-        usuarios = sorted(df["usuario_id"].unique())
+    usuario_map = {}
+
+    if len(df_usuarios) > 0:
+
+        usuario_map = dict(
+
+            zip(
+
+                df_usuarios["usuario_id"],
+
+                df_usuarios["id"].astype(str)
+
+            )
+
+        )
+
+        usuarios = sorted(usuario_map.keys())
 
     else:
 
@@ -46,13 +62,15 @@ def movimientos_page():
 
     with col1:
 
-        usuario = st.selectbox(
+        usuario_nombre = st.selectbox(
 
             "Usuario",
 
             usuarios
 
         )
+
+        usuario = usuario_map[usuario_nombre]
 
         tipo = st.selectbox(
 
@@ -162,9 +180,23 @@ def movimientos_page():
 
             .reset_index()
 
-            .sort_values(by="monto")
+        )
+
+        resumen.columns = ["usuario_id", "saldo"]
+
+        resumen = df_usuarios.merge(
+
+            resumen,
+
+            on="usuario_id",
+
+            how="left"
 
         )
+
+        resumen["saldo"] = resumen["saldo"].fillna(0)
+
+        resumen = resumen.sort_values(by="saldo")
 
 
         st.subheader("Estado de cuentas")
