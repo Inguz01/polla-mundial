@@ -1,3 +1,22 @@
+"""
+Este módulo se encarga EXCLUSIVAMENTE de la liquidación
+financiera y cálculo de resultados de partidos ya registrados.
+
+Funciones principales:
+- Detectar partidos con resultados oficiales registrados
+- Liquidar premios y apuestas por partido
+- Generar movimientos financieros
+- Calcular jackpot y comisiones
+- Actualizar puntos y rankings
+- Permitir reliquidación controlada durante 10 minutos
+- Evitar doble liquidación de partidos ya procesados
+
+Importante:
+Este módulo NO registra marcadores manualmente.
+Solo procesa partidos previamente registrados
+en resultados.py
+"""
+
 import streamlit as st
 import pandas as pd
 from zoneinfo import ZoneInfo   

@@ -1,3 +1,27 @@
+"""
+MÓDULO: resultados.py
+
+Responsabilidad:
+Este módulo se encarga EXCLUSIVAMENTE del registro manual
+de resultados oficiales de los partidos por parte del administrador.
+
+Funciones principales:
+- Mostrar partidos por fecha
+- Habilitar registro únicamente 2 horas después del inicio
+- Permitir seleccionar manualmente qué partidos registrar
+- Guardar únicamente partidos marcados por el admin
+- Evitar registrar partidos no jugados o no seleccionados
+- NO realiza liquidaciones financieras
+- NO calcula premios
+- NO actualiza rankings
+- NO genera movimientos económicos
+
+Importante:
+Este módulo SOLO registra resultados oficiales.
+La liquidación y procesamiento financiero se realizan
+posteriormente en resultados_partido.py
+"""
+
 import streamlit as st
 import pandas as pd
 from zoneinfo import ZoneInfo
@@ -387,22 +411,29 @@ def resultados_page():
                     key=key_visit,
                     label_visibility="collapsed",
                     max_chars=2,
-                    disabled=not recalcular
+                    disabled=not recalcular or not puede_registrar_resultado
                 )
 
-            resultados.append({
+            if (
+                recalcular and
+                puede_registrar_resultado and
+                val_local.strip() != "" and
+                val_visit.strip() != ""
+            ):
 
-                "partido_id": row["id"],
+                resultados.append({
 
-                "recalcular": recalcular,
+                    "partido_id": row["id"],
 
-                "goles_local": val_local,
+                    "recalcular": recalcular,
 
-                "goles_visitante": val_visit,
+                    "goles_local": val_local,
 
-                "ya_registrado": ya_registrado
+                    "goles_visitante": val_visit,
 
-            })
+                    "ya_registrado": ya_registrado
+
+                })
 
             st.markdown(
                 "<br>",
@@ -570,24 +601,6 @@ def resultados_page():
                 ])
 
             guardados += 1
-
-            # =====================
-            # MARCAR LIQUIDADO
-            # =====================
-
-            sheet_partidos = db.worksheet(
-                "partidos"
-            )
-
-            fila_partido = df_partidos[
-                df_partidos["id"]
-                == r["partido_id"]
-            ].index[0] + 2
-
-            sheet_partidos.update(
-                f"I{fila_partido}",
-                [["liquidado"]]
-            )
 
         cargar_todo.clear()
 
