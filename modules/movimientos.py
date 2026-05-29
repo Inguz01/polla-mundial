@@ -34,23 +34,9 @@ def movimientos_page():
 
     df_usuarios = data["usuarios"].copy()
 
-    usuario_map = {}
-
     if len(df_usuarios) > 0:
 
-        usuario_map = dict(
-
-            zip(
-
-                df_usuarios["usuario_id"],
-
-                df_usuarios["id"].astype(str)
-
-            )
-
-        )
-
-        usuarios = sorted(usuario_map.keys())
+        usuarios = sorted(df_usuarios["usuario_id"].tolist())
 
     else:
 
@@ -62,27 +48,25 @@ def movimientos_page():
 
     with col1:
 
-        usuario_nombre = st.selectbox(
+        opciones_usuario = ["— Selecciona un usuario —"] + usuarios
+
+        usuario = st.selectbox(
 
             "Usuario",
 
-            usuarios
+            opciones_usuario
 
         )
 
-        usuario = usuario_map[usuario_nombre]
-
         tipo = st.selectbox(
 
-            "Tipo movimiento",
+            "Tipo de movimiento",
 
             [
 
-                "pago recibido",
+                "Recargar cuenta (ingreso)",
 
-                "pago realizado",
-
-                "ajuste manual"
+                "Retirar dinero (egreso)",
 
             ]
 
@@ -115,29 +99,35 @@ def movimientos_page():
     if st.button("Guardar movimiento"):
 
 
+        if usuario == "— Selecciona un usuario —":
+
+            st.warning("Selecciona un usuario para registrar el movimiento")
+
+            st.stop()
+
         if monto == 0:
 
             st.warning("Ingrese un monto válido")
 
             st.stop()
 
+        if not referencia.strip():
 
-        if tipo == "pago recibido":
+            st.warning("El campo Referencia es obligatorio (ej: nequi, efectivo, transferencia...)")
+
+            st.stop()
+
+
+        if tipo == "Recargar cuenta (ingreso)":
 
             valor = monto
             tipo_mov = "pago"
 
 
-        elif tipo == "pago realizado":
+        else:  # Retirar dinero (egreso)
 
             valor = -monto
             tipo_mov = "retiro"
-
-
-        else:
-
-            valor = monto
-            tipo_mov = "ajuste"
 
 
         registrar_movimiento(

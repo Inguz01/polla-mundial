@@ -119,6 +119,53 @@ def admin_usuarios_page():
     st.divider()
 
     # =========================
+    # CAMBIAR CONTRASEÑA
+    # =========================
+
+    st.subheader("Cambiar contraseña")
+
+    usuario_pwd = st.selectbox(
+        "Selecciona usuario",
+        df["usuario_id"].tolist(),
+        key="sel_pwd"
+    )
+
+    nueva_pwd = st.text_input(
+        "Nueva contraseña",
+        type="password",
+        key="nueva_pwd"
+    )
+
+    confirmar_pwd = st.text_input(
+        "Confirmar contraseña",
+        type="password",
+        key="confirmar_pwd"
+    )
+
+    if st.button("Cambiar contraseña"):
+
+        if not nueva_pwd.strip():
+            st.warning("Ingresa la nueva contraseña")
+
+        elif nueva_pwd != confirmar_pwd:
+            st.error("Las contraseñas no coinciden")
+
+        else:
+
+            db = connect()
+            sheet = db.worksheet("usuarios")
+
+            fila = df[df["usuario_id"] == usuario_pwd].index[0] + 2
+
+            sheet.update(f"C{fila}", [[hash_password(nueva_pwd)]])
+
+            cargar_todo.clear()
+
+            st.success(f"Contraseña de {usuario_pwd} actualizada correctamente")
+
+    st.divider()
+
+    # =========================
     # LISTADO
     # =========================
 

@@ -15,8 +15,7 @@ def finanzas_page():
 
     data = cargar_todo()
 
-    df_mov  = data.get("movimientos", pd.DataFrame()).copy()
-    df_part = data.get("partidos",    pd.DataFrame()).copy()
+    df_mov = data.get("movimientos", pd.DataFrame()).copy()
 
     # =========================
     # NORMALIZAR MOVIMIENTOS
@@ -38,31 +37,25 @@ def finanzas_page():
     df_mov["monto"]      = pd.to_numeric(df_mov["monto"], errors="coerce").fillna(0)
 
     # =========================
-    # PARTIDOS LIQUIDADOS
+    # MÉTRICAS DEL TORNEO
+    # Se calculan directamente desde movimientos, sin depender
+    # del campo "estado" de la hoja partidos (que nunca se actualiza)
+    # Un partido está liquidado si tiene al menos un movimiento tipo "comision"
     # =========================
 
-    if df_part is None or df_part.empty:
-        st.info("No hay partidos cargados")
-        return
-
-    df_part["id"] = df_part["id"].astype(str)
-    partidos_liquidados = df_part[df_part["estado"] == "liquidado"]["id"].tolist()
-
-    # Movimientos de partidos ya liquidados (para las métricas del torneo)
-    refs_liquidadas = [f"partido_{pid}" for pid in partidos_liquidados]
+    # Referencias de partidos que ya tienen comisión registrada = liquidados
+    refs_liquidadas = df_mov[
+        df_mov["tipo"] == "comision"
+    ]["referencia"].unique().tolist()
 
     df_liq = df_mov[df_mov["referencia"].isin(refs_liquidadas)]
 
-    # =========================
-    # MÉTRICAS DEL TORNEO
-    # =========================
-
-    # Recaudado: suma de apuestas (negativas para el usuario → valor absoluto)
+    # Recaudado: apuestas de partidos liquidados (valor absoluto porque son negativos)
     total_recaudado = df_liq[
         df_liq["tipo"] == "apuesta"
     ]["monto"].abs().sum()
 
-    # Comisión cobrada por la casa en partidos liquidados
+    # Comisión cobrada por la casa
     comision = df_liq[
         df_liq["tipo"] == "comision"
     ]["monto"].sum()
@@ -72,16 +65,16 @@ def finanzas_page():
         df_liq["tipo"] == "premio"
     ]["monto"].sum()
 
-    jackpot_pagado = df_liq[
-        df_liq["tipo"] == "jackpot_pago"
+    jackpot_pagado = df_mov[
+        df_mov["tipo"] == "jackpot_pago"
     ]["monto"].sum()
 
     total_pagado = premios_pagados + jackpot_pagado
 
-    # Jackpot acumulado (aportes - pagos, sobre TODOS los movimientos)
+    # Jackpot acumulado (aportes - pagos, sobre todos los movimientos)
     jackpot_actual = (
         df_mov[df_mov["tipo"] == "jackpot_aporte"]["monto"].sum()
-        - df_mov[df_mov["tipo"] == "jackpot_pago"]["monto"].sum()
+        - jackpot_pagado
     )
 
     # =========================

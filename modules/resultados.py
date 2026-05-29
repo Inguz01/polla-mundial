@@ -205,9 +205,10 @@ def resultados_page():
         # DEFAULTS
         # =========================
 
-        if ya_registrado:
+        # Checkbox siempre desmarcado por defecto para evitar registros accidentales
+        recalcular_default = False
 
-            recalcular_default = False
+        if ya_registrado:
 
             goles_local_default = str(
                 safe_int(
@@ -222,8 +223,6 @@ def resultados_page():
             )
 
         else:
-
-            recalcular_default = True
 
             goles_local_default = "0"
 

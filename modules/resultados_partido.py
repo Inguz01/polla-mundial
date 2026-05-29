@@ -24,6 +24,20 @@ from utils.data_loader import cargar_todo
 from utils.dataframe_utils import safe_int
 from utils.config import valor_apuesta_por_fase, porcentaje_admin
 from utils.movimientos import registrar_movimientos
+from utils.validaciones import apuesta_abierta
+
+
+def _icono_resultado(pred_local, pred_visit, real_l, real_v):
+    """Clasifica el pronóstico de un usuario vs el resultado real."""
+    if pred_local == real_l and pred_visit == real_v:
+        return "🎯 Exacto"
+    diff_real = real_l - real_v
+    diff_pred = pred_local - pred_visit
+    if diff_real == 0 and diff_pred == 0:
+        return "✅ Empate"
+    if diff_real != 0 and diff_pred != 0 and (diff_real > 0) == (diff_pred > 0):
+        return "✅ Ganador"
+    return "❌ Fallo"
 
 
 def resultados_partido_page():
@@ -62,156 +76,159 @@ def resultados_partido_page():
     # VALIDACIÓN
     # =========================
 
-    if len(df_res) == 0:
+    hay_resultados = len(df_res) > 0
+
+    tabla = []  # siempre inicializar antes del bloque condicional
+
+    if not hay_resultados:
         st.info("Aún no hay resultados registrados")
-        return
 
     # =========================
     # LIMPIEZA
     # =========================
 
-    df_res["goles_local"]     = df_res["goles_local"].apply(safe_int)
-    df_res["goles_visitante"] = df_res["goles_visitante"].apply(safe_int)
+    if hay_resultados:
+        df_res["goles_local"]     = df_res["goles_local"].apply(safe_int)
+        df_res["goles_visitante"] = df_res["goles_visitante"].apply(safe_int)
 
     # =========================
     # JOIN PARTIDOS
     # =========================
 
-    df_res = df_res.merge(
-        df_part[["id", "equipo_local", "equipo_visitante", "fase"]],
-        left_on="partido_id",
-        right_on="id",
-        how="left"
-    )
+    if hay_resultados:
 
-    # =========================
-    # TABLA GENERAL
-    # =========================
-
-    tabla = []
-
-    df_res = df_res.sort_values(
-        by="partido_id",
-        ascending=False
-    )
-
-    # cargar config una sola vez antes del loop para evitar N llamadas repetidas
-    from utils.config import obtener_config
-    config_cache = obtener_config()
-
-    for _, row in df_res.iterrows():
-
-        partido_id = str(row["partido_id"])
-
-        fase = row["fase"]
-
-        real_local = safe_int(row["goles_local"])
-        real_visit = safe_int(row["goles_visitante"])
-
-        partido = f"{row['equipo_local']} vs {row['equipo_visitante']}"
+        df_res = df_res.merge(
+            df_part[["id", "equipo_local", "equipo_visitante", "fase"]],
+            left_on="partido_id",
+            right_on="id",
+            how="left"
+        )
 
         # =========================
-        # PREDICCIONES
+        # TABLA GENERAL
         # =========================
 
-        df_pred_part = df_pred[
-            df_pred["partido_id"].astype(str) == partido_id
-        ].copy()
+        tabla = []
 
-        participantes = len(df_pred_part)
+        df_res = df_res.sort_values(
+            by="partido_id",
+            ascending=False
+        )
 
-        if participantes == 0:
-            continue
+        # cargar config una sola vez antes del loop para evitar N llamadas repetidas
+        from utils.config import obtener_config
+        config_cache = obtener_config()
 
-        # =========================
-        # POZO
-        # =========================
+        for _, row in df_res.iterrows():
 
-        valor = valor_apuesta_por_fase(fase, config=config_cache)
+            partido_id = str(row["partido_id"])
 
-        if valor <= 0:
-            valor = 5000
+            fase = row["fase"]
 
-        pozo_bruto = participantes * valor
-        comision   = round(pozo_bruto * porcentaje_admin(config=config_cache), 2)
-        pozo       = round(pozo_bruto - comision, 2)
+            real_local = safe_int(row["goles_local"])
+            real_visit = safe_int(row["goles_visitante"])
 
-        # =========================
-        # GANADORES
-        # =========================
+            partido = f"{row['equipo_local']} vs {row['equipo_visitante']}"
 
-        df_pred_part["goles_local"] = df_pred_part["goles_local"].apply(safe_int)
-        df_pred_part["goles_visitante"] = df_pred_part["goles_visitante"].apply(safe_int)
+            # =========================
+            # PREDICCIONES
+            # =========================
 
-        ganadores = df_pred_part[
-            (df_pred_part["goles_local"] == real_local) &
-            (df_pred_part["goles_visitante"] == real_visit)
-        ]
+            df_pred_part = df_pred[
+                df_pred["partido_id"].astype(str) == partido_id
+            ].copy()
 
-        num_ganadores = len(ganadores)
+            participantes = len(df_pred_part)
 
-        premio = round(pozo / num_ganadores, 2) if num_ganadores > 0 else 0
+            if participantes == 0:
+                continue
 
-        # =========================
-        # LIQUIDADO
-        # =========================
+            # =========================
+            # POZO
+            # =========================
 
-        ref = f"partido_{partido_id}"
+            valor = valor_apuesta_por_fase(fase, config=config_cache)
 
-        liquidado = not df_mov[
-            (df_mov["referencia"].astype(str) == ref) &
-            (df_mov["tipo"] == "comision")
-        ].empty
+            if valor <= 0:
+                valor = 5000
 
-        puede_reliquidar = False
+            pozo_bruto = participantes * valor
+            comision   = round(pozo_bruto * porcentaje_admin(config=config_cache), 2)
+            pozo       = round(pozo_bruto - comision, 2)
 
-        if liquidado:
+            # =========================
+            # GANADORES
+            # =========================
 
-            mov_liq = df_mov[
-                (df_mov["referencia"].astype(str) == ref) &
-                (df_mov["tipo"] == "comision")
+            df_pred_part["goles_local"] = df_pred_part["goles_local"].apply(safe_int)
+            df_pred_part["goles_visitante"] = df_pred_part["goles_visitante"].apply(safe_int)
+
+            ganadores = df_pred_part[
+                (df_pred_part["goles_local"] == real_local) &
+                (df_pred_part["goles_visitante"] == real_visit)
             ]
 
-            if not mov_liq.empty:
+            num_ganadores = len(ganadores)
 
-                fecha_liq = mov_liq.iloc[0].get(
-                    "fecha_liquidacion"
-                )
+            premio = round(pozo / num_ganadores, 2) if num_ganadores > 0 else 0
 
-                if pd.notna(fecha_liq):
+            # =========================
+            # LIQUIDADO
+            # =========================
 
-                    fecha_liq = pd.Timestamp(fecha_liq)
+            ref = f"partido_{partido_id}"
 
-                    if fecha_liq.tzinfo is None:
+            liquidado = not df_mov[
+                (df_mov["referencia"].astype(str) == ref) &
+                (df_mov["tipo"] == "comision")
+            ].empty
 
-                        fecha_liq = fecha_liq.tz_localize(
-                            "America/Bogota"
-                        )
+            puede_reliquidar = False
 
-                    limite = fecha_liq + pd.Timedelta(minutes=10)
+            if liquidado:
 
-                    puede_reliquidar = ahora <= limite
+                mov_liq = df_mov[
+                    (df_mov["referencia"].astype(str) == ref) &
+                    (df_mov["tipo"] == "comision")
+                ]
 
-        tabla.append({
-            "partido_id": partido_id,
-            "partido": partido,
-            "resultado": f"{real_local}-{real_visit}",
-            "participantes": participantes,
-            "valor": valor,
-            "pozo_bruto": pozo_bruto,
-            "comision": comision,
-            "ganadores": num_ganadores,
-            "premio": premio,
-            "jackpot": pozo if num_ganadores == 0 else 0,
-            "puede_reliquidar": puede_reliquidar,
-            "liquidado": liquidado
-            
-        })
+                if not mov_liq.empty:
 
-        
-    if len(tabla) == 0:
-        st.warning("No hay partidos con participantes")
-        return
+                    fecha_liq = mov_liq.iloc[0].get(
+                        "fecha_liquidacion"
+                    )
+
+                    if pd.notna(fecha_liq):
+
+                        fecha_liq = pd.Timestamp(fecha_liq)
+
+                        if fecha_liq.tzinfo is None:
+
+                            fecha_liq = fecha_liq.tz_localize(
+                                "America/Bogota"
+                            )
+
+                        limite = fecha_liq + pd.Timedelta(minutes=10)
+
+                        puede_reliquidar = ahora <= limite
+
+            tabla.append({
+                "partido_id": partido_id,
+                "partido": partido,
+                "resultado": f"{real_local}-{real_visit}",
+                "participantes": participantes,
+                "valor": valor,
+                "pozo_bruto": pozo_bruto,
+                "comision": comision,
+                "ganadores": num_ganadores,
+                "premio": premio,
+                "jackpot": pozo if num_ganadores == 0 else 0,
+                "puede_reliquidar": puede_reliquidar,
+                "liquidado": liquidado
+            })
+
+        if len(tabla) == 0:
+            st.warning("No hay partidos con participantes")
 
     # =========================
     # DISPLAY
@@ -391,3 +408,80 @@ def resultados_partido_page():
                     st.rerun()
 
         st.divider()
+
+    # =========================
+    # FOTO DE APUESTAS
+    # Sección independiente: muestra pronósticos de todos los
+    # partidos cerrados, visible para admin y usuarios
+    # =========================
+
+    st.divider()
+    st.subheader("📸 Foto de apuestas por partido")
+    st.caption("Registro congelado de pronósticos al cierre de cada partido")
+
+    partidos_cerrados = df_part[
+        ~df_part.apply(
+            lambda p: apuesta_abierta(p.get("fecha"), p.get("hora")),
+            axis=1
+        )
+    ].copy()
+
+    if partidos_cerrados.empty:
+        st.info("Aún no hay partidos cerrados")
+    else:
+        for _, partido_row in partidos_cerrados.iterrows():
+
+            pid = str(partido_row.get("id", ""))
+            nombre_partido = (
+                f"{partido_row.get('equipo_local', '')} vs {partido_row.get('equipo_visitante', '')}"
+            )
+
+            df_pred_foto = df_pred[
+                df_pred["partido_id"].astype(str) == pid
+            ].copy()
+
+            if df_pred_foto.empty:
+                continue
+
+            df_pred_foto["goles_local"]     = df_pred_foto["goles_local"].apply(safe_int)
+            df_pred_foto["goles_visitante"] = df_pred_foto["goles_visitante"].apply(safe_int)
+
+            df_pred_foto["pronóstico"] = (
+                df_pred_foto["goles_local"].astype(str)
+                + " - "
+                + df_pred_foto["goles_visitante"].astype(str)
+            )
+
+            # Verificar si hay resultado oficial registrado
+            df_res_foto = df_res[df_res["partido_id"].astype(str) == pid] if "partido_id" in df_res.columns else pd.DataFrame()
+
+            resultado_disponible = False
+            real_l, real_v = 0, 0
+
+            if not df_res_foto.empty:
+                real_l = safe_int(df_res_foto.iloc[0].get("goles_local", 0))
+                real_v = safe_int(df_res_foto.iloc[0].get("goles_visitante", 0))
+                resultado_disponible = True
+
+            if resultado_disponible:
+                df_pred_foto["acierto"] = df_pred_foto.apply(
+                    lambda r: _icono_resultado(
+                        r["goles_local"], r["goles_visitante"], real_l, real_v
+                    ),
+                    axis=1
+                )
+                titulo = f"⚽ {nombre_partido}  —  Resultado: **{real_l}-{real_v}**"
+                cols = ["usuario_id", "pronóstico", "acierto"]
+            else:
+                titulo = f"⚽ {nombre_partido}  —  Resultado pendiente"
+                cols = ["usuario_id", "pronóstico"]
+
+            with st.expander(titulo, expanded=False):
+                st.dataframe(
+                    df_pred_foto[cols].sort_values("usuario_id"),
+                    hide_index=True,
+                    use_container_width=True
+                )
+                st.caption(
+                    f"📸 {len(df_pred_foto)} pronóstico(s) registrado(s) al cierre"
+                )
