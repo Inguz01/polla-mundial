@@ -538,14 +538,22 @@ def resultados_page():
 
             partido = partido_df.iloc[0]
 
-            # 🔒 BLOQUEAR SI YA LIQUIDADO
+            # Verificar si ya fue liquidado financieramente (tiene movimiento de comision)
+            from utils.data_loader import cargar_todo as _ct
+            _data = _ct()
+            _df_mov_check = _data.get("movimientos", pd.DataFrame())
+            _ref = f"partido_{r['partido_id']}"
+            ya_liquidado_fin = False
+            if not _df_mov_check.empty and "referencia" in _df_mov_check.columns and "tipo" in _df_mov_check.columns:
+                ya_liquidado_fin = not _df_mov_check[
+                    (_df_mov_check["referencia"].astype(str) == _ref) &
+                    (_df_mov_check["tipo"] == "comision")
+                ].empty
 
-            if partido.get("estado") == "liquidado":
-
+            if ya_liquidado_fin:
                 st.warning(
-                    f"Partido {r['partido_id']} ya fue liquidado"
+                    f"Partido {r['partido_id']} ya fue liquidado financieramente — usa Reliquidar en Liquidar partidos"
                 )
-
                 continue
 
             fila_existente = None

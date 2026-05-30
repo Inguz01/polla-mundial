@@ -17,7 +17,7 @@ def registrar_movimiento(usuario_id, tipo, referencia, monto):
 def registrar_movimientos(lista):
     """
     Registra múltiples movimientos en una sola llamada a Sheets.
-    lista: [{"usuario_id", "tipo", "referencia", "monto"}, ...]
+    lista: [{"usuario_id", "tipo", "referencia", "monto", "fecha_liquidacion"(opcional)}, ...]
     """
     if not lista:
         return
@@ -29,11 +29,12 @@ def registrar_movimientos(lista):
     filas = [
         [
             generar_id(),
-            str(m["usuario_id"]).strip().lower(),  # normalizar a minúsculas
+            str(m["usuario_id"]).strip().lower(),
             fecha,
             m["tipo"],
             m["referencia"],
-            m["monto"]
+            m["monto"],
+            m.get("fecha_liquidacion", "")  # columna G — vacía si no aplica
         ]
         for m in lista
     ]

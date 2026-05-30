@@ -353,6 +353,26 @@ ROL_ACTUAL = st.session_state.get("rol")
 
 st.sidebar.title("⚽ Polla Mundial")
 
+# Cerrar sidebar automáticamente al seleccionar una opción
+st.markdown("""
+<script>
+const observer = new MutationObserver(() => {
+    const radios = window.parent.document.querySelectorAll(
+        'section[data-testid="stSidebar"] input[type="radio"]'
+    );
+    radios.forEach(r => {
+        r.addEventListener('change', () => {
+            const btn = window.parent.document.querySelector(
+                'button[data-testid="collapsedControl"]'
+            );
+            if (btn) { setTimeout(() => btn.click(), 150); }
+        });
+    });
+});
+observer.observe(window.parent.document.body, { childList: true, subtree: true });
+</script>
+""", unsafe_allow_html=True)
+
 menu_opciones = [
 
     "Reglas de juego",

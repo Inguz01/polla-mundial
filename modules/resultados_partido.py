@@ -25,6 +25,7 @@ from utils.dataframe_utils import safe_int
 from utils.config import valor_apuesta_por_fase, porcentaje_admin
 from utils.movimientos import registrar_movimientos
 from utils.validaciones import apuesta_abierta
+from database.google_sheets import connect
 
 
 def _icono_resultado(pred_local, pred_visit, real_l, real_v):
@@ -140,9 +141,6 @@ def resultados_partido_page():
 
             participantes = len(df_pred_part)
 
-            if participantes == 0:
-                continue
-
             # =========================
             # POZO
             # =========================
@@ -151,6 +149,23 @@ def resultados_partido_page():
 
             if valor <= 0:
                 valor = 5000
+
+            if participantes == 0:
+                tabla.append({
+                    "partido_id": partido_id,
+                    "partido": partido,
+                    "resultado": f"{real_local}-{real_visit}",
+                    "participantes": 0,
+                    "valor": valor_apuesta_por_fase(fase, config=config_cache) or 5000,
+                    "pozo_bruto": 0,
+                    "comision": 0,
+                    "ganadores": 0,
+                    "premio": 0,
+                    "jackpot": 0,
+                    "puede_reliquidar": False,
+                    "liquidado": False
+                })
+                continue
 
             pozo_bruto = participantes * valor
             comision   = round(pozo_bruto * porcentaje_admin(config=config_cache), 2)
@@ -317,53 +332,47 @@ def resultados_partido_page():
                     ]
 
                     # =========================
-                    # REVERSAR TODO
+                    # REVERSAR si ya estaba liquidado
                     # =========================
 
-                    df_mov_partido = df_mov[
-                        df_mov["referencia"].astype(str) == ref
-                    ]
+                    if row["liquidado"]:
 
-                    reversos = []
+                        df_mov_partido = df_mov[
+                            df_mov["referencia"].astype(str) == ref
+                        ]
 
-                    if not df_mov_partido.empty:
+                        reversos = []
 
                         for _, mov in df_mov_partido.iterrows():
 
-                            reversos.append({
-                                "usuario_id": mov["usuario_id"],
-                                "tipo": "reverso",
-                                "referencia": ref,
-                                "monto": -float(mov["monto"])
-                            })
+                            if mov["tipo"] != "reverso":  # no reversar reversos
 
-                        registrar_movimientos(reversos)
+                                reversos.append({
+                                    "usuario_id": mov["usuario_id"],
+                                    "tipo": "reverso",
+                                    "referencia": ref,
+                                    "monto": -float(mov["monto"])
+                                })
+
+                        if reversos:
+                            registrar_movimientos(reversos)
 
                     # =========================
-                    # NUEVA LIQUIDACIÓN
+                    # LIQUIDAR (primera vez o reliquidación)
                     # =========================
 
                     movimientos = []
 
-                    # REGISTRAR APUESTAS SOLO SI NO EXISTEN
-                    apuestas_existentes = df_mov[
-                        (df_mov["referencia"].astype(str) == ref) &
-                        (df_mov["tipo"] == "apuesta")
-                    ]
+                    for _, p in df_pred_part.iterrows():
 
-                    if apuestas_existentes.empty:
+                        movimientos.append({
+                            "usuario_id": p["usuario_id"],
+                            "tipo": "apuesta",
+                            "referencia": ref,
+                            "monto": -row["valor"]
+                        })
 
-                        for _, p in df_pred_part.iterrows():
-
-                            movimientos.append({
-                                "usuario_id": p["usuario_id"],
-                                "tipo": "apuesta",
-                                "referencia": ref,
-                                "monto": -row["valor"]
-                            })
-
-                    # COMISIÓN
-
+                    # COMISIÓN — fecha_liquidacion marca inicio del contador de 10 min
                     movimientos.append({
                         "usuario_id": "admin",
                         "tipo": "comision",
@@ -372,11 +381,8 @@ def resultados_partido_page():
                         "fecha_liquidacion": str(ahora)
                     })
 
-                    # PREMIOS
-
+                    # PREMIOS O JACKPOT
                     if row["ganadores"] > 0:
-
-                        premio = row["premio"]
 
                         for _, g in ganadores_liq.iterrows():
 
@@ -384,7 +390,7 @@ def resultados_partido_page():
                                 "usuario_id": g["usuario_id"],
                                 "tipo": "premio",
                                 "referencia": ref,
-                                "monto": premio
+                                "monto": row["premio"]
                             })
 
                     else:
@@ -396,14 +402,15 @@ def resultados_partido_page():
                             "monto": row["pozo_bruto"] - row["comision"]
                         })
 
-                    # GUARDAR
-
                     if movimientos:
                         registrar_movimientos(movimientos)
 
                     cargar_todo.clear()
 
-                    st.success("✅ Partido liquidado correctamente")
+                    if row["liquidado"]:
+                        st.success("🔄 Partido reliquidado — saldos, puntos y foto actualizados")
+                    else:
+                        st.success("✅ Partido liquidado correctamente")
 
                     st.rerun()
 
@@ -441,6 +448,11 @@ def resultados_partido_page():
             ].copy()
 
             if df_pred_foto.empty:
+                with st.expander(
+                    f"⚽ {nombre_partido}  —  Sin pronósticos registrados",
+                    expanded=False
+                ):
+                    st.caption("No hubo participantes en este partido")
                 continue
 
             df_pred_foto["goles_local"]     = df_pred_foto["goles_local"].apply(safe_int)
@@ -464,14 +476,20 @@ def resultados_partido_page():
                 resultado_disponible = True
 
             if resultado_disponible:
+
+                def _puntos_foto(r):
+                    from services.calculo_puntos import calcular_puntos
+                    return calcular_puntos(real_l, real_v, r["goles_local"], r["goles_visitante"], True)
+
                 df_pred_foto["acierto"] = df_pred_foto.apply(
                     lambda r: _icono_resultado(
                         r["goles_local"], r["goles_visitante"], real_l, real_v
                     ),
                     axis=1
                 )
+                df_pred_foto["puntos"] = df_pred_foto.apply(_puntos_foto, axis=1)
                 titulo = f"⚽ {nombre_partido}  —  Resultado: **{real_l}-{real_v}**"
-                cols = ["usuario_id", "pronóstico", "acierto"]
+                cols = ["usuario_id", "pronóstico", "acierto", "puntos"]
             else:
                 titulo = f"⚽ {nombre_partido}  —  Resultado pendiente"
                 cols = ["usuario_id", "pronóstico"]
