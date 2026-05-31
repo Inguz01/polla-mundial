@@ -109,11 +109,22 @@ def predicciones_page():
     ).dt.total_seconds() / 3600
 
     # =========================
-    # SOLO PARTIDOS FUTUROS
+    # FILTRO: futuros + cerrados no liquidados aún
+    # Desaparecen solo cuando tienen comisión registrada (= liquidados)
     # =========================
 
+    df_mov_pred = data.get("movimientos", pd.DataFrame()).copy()
+
+    if not df_mov_pred.empty and "tipo" in df_mov_pred.columns:
+        ids_liquidados = df_mov_pred[
+            df_mov_pred["tipo"] == "comision"
+        ]["referencia"].str.replace("partido_", "", regex=False).tolist()
+    else:
+        ids_liquidados = []
+
     df_partidos = df_partidos[
-        df_partidos["fecha_hora"] > ahora
+        (df_partidos["fecha_hora"] > ahora) |
+        (~df_partidos["id"].astype(str).isin(ids_liquidados))
     ].copy()
 
     # =========================
@@ -211,6 +222,30 @@ def predicciones_page():
         codigo_local = url_bandera(row["equipo_local"])
         codigo_visit = url_bandera(row["equipo_visitante"])
 
+        # ── Cálculo pozo antes del container para que esté disponible en todo el bloque ──
+        predicciones_partido = data["predicciones"].copy()
+
+        if not predicciones_partido.empty and "partido_id" in predicciones_partido.columns:
+            predicciones_partido = predicciones_partido[
+                predicciones_partido["partido_id"].astype(str) == str(row["id"])
+            ]
+        else:
+            predicciones_partido = pd.DataFrame()
+
+        participantes = 0
+
+        if not predicciones_partido.empty:
+            if "participa" in predicciones_partido.columns:
+                participantes = predicciones_partido[
+                    predicciones_partido["participa"].astype(str) == "1"
+                ]["usuario_id"].nunique()
+            elif "usuario_id" in predicciones_partido.columns:
+                participantes = predicciones_partido["usuario_id"].nunique()
+
+        valor_apuesta = valor_apuesta_por_fase(row["fase"])
+        pozo_total = participantes * valor_apuesta
+        premio_estimado = pozo_total * (1 - porcentaje_admin())
+
         with st.container(border=True):
 
             # ── Fecha y hora ──────────────────────────
@@ -228,6 +263,56 @@ def predicciones_page():
             if not abierto:
 
                 st.error("🔒 Partido iniciado")
+
+                # Mostrar equipos
+                c_local, c_vs, c_visit = st.columns([5, 1, 5])
+
+                with c_local:
+                    st.markdown(
+                        f"""<div style="display:flex; align-items:center; gap:8px;">
+                            <img src="{codigo_local}" style="width:26px; border-radius:2px;">
+                            <span style="font-size:15px; font-weight:600;">{row['equipo_local']}</span>
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
+
+                with c_vs:
+                    st.markdown(
+                        "<div style='text-align:center; padding-top:4px; font-weight:600;'>vs</div>",
+                        unsafe_allow_html=True
+                    )
+
+                with c_visit:
+                    st.markdown(
+                        f"""<div style="display:flex; align-items:center; gap:8px;">
+                            <img src="{codigo_visit}" style="width:26px; border-radius:2px;">
+                            <span style="font-size:15px; font-weight:600;">{row['equipo_visitante']}</span>
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
+
+                st.markdown("<br>", unsafe_allow_html=True)
+
+                # Mostrar métricas del pozo aunque esté cerrado
+                if participantes > 0:
+
+                    col1, col2, col3 = st.columns(3)
+
+                    with col1:
+                        st.metric("👥 Participantes", participantes)
+
+                    with col2:
+                        st.metric("💰 Pozo", f"${pozo_total:,.0f}")
+
+                    with col3:
+                        st.metric("🏆 Premio Estimado", f"${premio_estimado:,.0f}")
+
+                else:
+
+                    st.caption("Sin participantes en este partido")
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                continue
 
             elif puede_apostar:
 
@@ -320,42 +405,10 @@ def predicciones_page():
                 )
             # ── MINI PANEL DEL PARTIDO ─────────────────────
 
-            predicciones_partido = data["predicciones"].copy()
-
-            if not predicciones_partido.empty and "partido_id" in predicciones_partido.columns:
-
-                predicciones_partido = predicciones_partido[
-                    predicciones_partido["partido_id"].astype(str)
-                    == str(row["id"])
-                ]
-
-            else:
-
-                predicciones_partido = pd.DataFrame()
-
-            participantes = 0
-
-            if not predicciones_partido.empty:
-
-                if "participa" in predicciones_partido.columns:
-
-                    participantes = predicciones_partido[
-                        predicciones_partido["participa"].astype(str) == "1"
-                    ]["usuario_id"].nunique()
-
-                elif "usuario_id" in predicciones_partido.columns:
-
-                    participantes = predicciones_partido[
-                        "usuario_id"
-                    ].nunique()
-
-            valor_apuesta = valor_apuesta_por_fase(
-                row["fase"]
+            st.caption(
+                f"Comisión administrativa: "
+                f"{porcentaje_admin()*100:.0f}%"
             )
-
-            pozo_total = participantes * valor_apuesta
-
-            premio_estimado = pozo_total * (1 - porcentaje_admin())
 
             if participantes > 0:
 
@@ -375,7 +428,7 @@ def predicciones_page():
 
                 with col3:
                     st.metric(
-                        "🏆 Premio Est.",
+                        "🏆 Premio Estimado",
                         f"${premio_estimado:,.0f}"
                     )
 

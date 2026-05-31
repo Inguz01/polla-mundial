@@ -157,28 +157,23 @@ def home_page():
 
     st.subheader("⚽ Valores por fase")
 
+    from utils.config import obtener_config
+
+    cfg = obtener_config()
+
+    fases_mapa = {
+        "Grupos":          cfg.get("valor_grupos",        6000),
+        "Dieciseisavos":   cfg.get("valor_dieciseisavos", 8000),
+        "Octavos":         cfg.get("valor_octavos",       10000),
+        "Cuartos":         cfg.get("valor_cuartos",       15000),
+        "Semifinal":       cfg.get("valor_semifinal",     20000),
+        "Tercer puesto":   cfg.get("tercer_puesto",       25000),
+        "Final":           cfg.get("valor_final",         25000),
+    }
+
     df_fases = pd.DataFrame({
-
-        "Fase": [
-
-            "Grupos",
-            "Octavos",
-            "Cuartos",
-            "Semifinal",
-            "Final"
-
-        ],
-
-        "Valor": [
-
-            "$5.000",
-            "$8.000",
-            "$10.000",
-            "$15.000",
-            "$20.000"
-
-        ]
-
+        "Fase":  list(fases_mapa.keys()),
+        "Valor": [f"${v:,.0f}".replace(",", ".") for v in fases_mapa.values()]
     })
 
     st.dataframe(
