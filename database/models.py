@@ -104,6 +104,8 @@ class Movimiento(Base):
 
     monto = Column(Numeric)
 
+    fecha_liquidacion = Column(DateTime, nullable=True)
+
 
 class Configuracion(Base):
     __tablename__ = "configuracion"

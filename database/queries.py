@@ -8,6 +8,10 @@ from database.models import Configuracion
 from database.models import Resultado
 #from utils.helpers import generar_id
 
+from database.models import Movimiento
+from utils.helpers import generar_id
+from datetime import datetime
+
 
 def obtener_config():
 
@@ -72,6 +76,49 @@ def guardar_resultado(
             )
 
             session.add(nuevo)
+
+        session.commit()
+
+    finally:
+
+        session.close()
+
+def guardar_movimientos(lista):
+
+    if not lista:
+        return
+
+    session = SessionLocal()
+
+    try:
+
+        for m in lista:
+
+            fecha_liquidacion = m.get(
+                "fecha_liquidacion"
+            )
+
+            if isinstance(
+                fecha_liquidacion,
+                str
+            ):
+                fecha_liquidacion = pd.to_datetime(
+                    fecha_liquidacion
+                ).to_pydatetime()
+
+            movimiento = Movimiento(
+                id=generar_id(),
+                usuario_id=str(
+                    m["usuario_id"]
+                ).strip().lower(),
+                fecha=datetime.now(),
+                tipo=m["tipo"],
+                referencia=m["referencia"],
+                monto=m["monto"],
+                fecha_liquidacion=fecha_liquidacion
+            )
+
+            session.add(movimiento)
 
         session.commit()
 
