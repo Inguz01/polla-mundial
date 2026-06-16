@@ -3,7 +3,10 @@ import pandas as pd
 
 from database.google_sheets import connect
 from utils.dataframe_utils import normalizar_columnas
-from database.queries import obtener_config
+from database.queries import (
+    obtener_config,
+    obtener_tabla
+)
 
 
 def worksheet_to_df(db, sheet_name):
@@ -57,17 +60,20 @@ def worksheet_to_df(db, sheet_name):
 @st.cache_data(ttl=1800)
 def cargar_todo():
 
-    db = connect()
+    partidos = obtener_tabla("partidos")
 
-    partidos = worksheet_to_df(db, "partidos")
-    predicciones = worksheet_to_df(db, "predicciones")
-    resultados = worksheet_to_df(db, "resultados")
-    movimientos = worksheet_to_df(db, "movimientos")
+    predicciones = obtener_tabla("predicciones")
+
+    resultados = obtener_tabla("resultados")
+
+    movimientos = obtener_tabla("movimientos")
+
+    equipos = obtener_tabla("equipos")
+
+    usuarios = obtener_tabla("usuarios")
     config = pd.DataFrame(
     obtener_config()
 )
-    equipos = worksheet_to_df(db, "equipos")
-    usuarios = worksheet_to_df(db, "usuarios")
 
     return {
 

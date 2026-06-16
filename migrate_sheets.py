@@ -79,10 +79,10 @@ def migrar_hoja(nombre_hoja, nombre_tabla):
 
 #migrar_hoja("equipos", "equipos")
 
-#migrar_hoja("predicciones", "predicciones")
+migrar_hoja("predicciones", "predicciones")
 
-#migrar_hoja("resultados", "resultados")
+migrar_hoja("resultados", "resultados")
 
 migrar_hoja("movimientos", "movimientos")
 
-migrar_hoja("config", "configuracion")
+#migrar_hoja("config", "configuracion")

@@ -45,6 +45,7 @@ def predicciones_page():
     data = cargar_todo()
 
     df_partidos = data["partidos"].copy()
+    st.write(df_partidos.dtypes)
     df_partidos = df_partidos[df_partidos["estado"] == "programado"]
 
     df_pred = data["predicciones"].copy()
@@ -78,6 +79,8 @@ def predicciones_page():
     #ahora = pd.Timestamp.now(tz).tz_convert(None)
 
     ahora = pd.Timestamp.now(tz=TZ)
+    st.write("Ahora:", ahora)
+    st.write("Timezone:", ahora.tz)
 
     # =========================
     # FECHA COMPLETA PARTIDO
@@ -102,6 +105,15 @@ def predicciones_page():
     df_partidos["fecha_hora"] = (
         df_partidos["fecha_hora"]
         .dt.tz_localize(TZ)
+    )
+
+    st.write("Ahora:", ahora)
+    st.write("Timezone:", ahora.tz)
+
+    st.write(
+        df_partidos[
+            ["fecha", "hora", "fecha_hora"]
+        ].head()
     )
 
     df_partidos["horas_restantes"] = (

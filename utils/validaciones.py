@@ -7,26 +7,27 @@ import pytz
 # ==============================
 def apuesta_abierta(fecha, hora, estado=None):
 
-    # si ya está marcado como cerrado o liquidado → bloquear
     if estado in ["cerrado", "liquidado"]:
         return False
 
     try:
-        fecha_hora = datetime.strptime(
-            f"{fecha} {hora}",
-            "%Y-%m-%d %H:%M"
+
+        fecha_hora = datetime.fromisoformat(
+            f"{fecha} {hora}"
         )
 
         limite = fecha_hora - timedelta(minutes=5)
 
-        # usar hora de Colombia para no bloquear 5h antes en servidores UTC
         tz = pytz.timezone("America/Bogota")
+
         ahora = datetime.now(tz).replace(tzinfo=None)
 
         return ahora < limite
 
-    except:
-        # si hay error en datos → mejor bloquear
+    except Exception as e:
+
+        print("ERROR apuesta_abierta:", e)
+
         return False
 
 
