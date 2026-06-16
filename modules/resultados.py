@@ -27,10 +27,11 @@ import pandas as pd
 from zoneinfo import ZoneInfo
 from utils.dataframe_utils import safe_int
 from utils.dataframe_utils import asegurar_columnas
-from database.google_sheets import connect
-from utils.helpers import generar_id
+#from database.google_sheets import connect
+#from utils.helpers import generar_id
 from utils.data_loader import cargar_todo
 from utils.flags import bandera as url_bandera
+from database.queries import guardar_resultado
 
 
 def resultados_page():
@@ -497,24 +498,24 @@ def resultados_page():
         # CONEXIÓN
         # =========================
 
-        try:
+      #  try:
 
-            db = connect()
+       #     db = connect()
 
-        except Exception:
+        #except Exception:
 
-            st.error(
-                "Error de conexión con Google Sheets"
-            )
+         #   st.error(
+          #      "Error de conexión con Google Sheets"
+           # )
 
-            return
+            #return
 
-        sheet = db.worksheet("resultados")
+        #sheet = db.worksheet("resultados")
 
-        resultados_existentes = (
-            sheet.get_all_records()
-        )
-
+        #resultados_existentes = (
+         #   sheet.get_all_records()
+        #)
+        #resultados_existentes = []
         guardados = 0
 
         # =========================
@@ -536,7 +537,7 @@ def resultados_page():
 
                 continue
 
-            partido = partido_df.iloc[0]
+            #partido = partido_df.iloc[0]
 
             # Verificar si ya fue liquidado financieramente (tiene movimiento de comision)
             from utils.data_loader import cargar_todo as _ct
@@ -556,19 +557,19 @@ def resultados_page():
                 )
                 continue
 
-            fila_existente = None
+           # fila_existente = None
 
-            for i, p in enumerate(
-                resultados_existentes
-            ):
+            #for i, p in enumerate(
+             #   resultados_existentes
+            #):
 
-                if str(
-                    p["partido_id"]
-                ) == str(r["partido_id"]):
+             #   if str(
+              #      p["partido_id"]
+               # ) == str(r["partido_id"]):
 
-                    fila_existente = i + 2
+                #    fila_existente = i + 2
 
-                    break
+                 #   break
 
             gl = int(
                 r["goles_local"].strip()
@@ -582,30 +583,11 @@ def resultados_page():
             # UPDATE
             # =====================
 
-            if fila_existente:
-
-                sheet.update(
-                    f"C{fila_existente}:D{fila_existente}",
-                    [[gl, gv]]
-                )
-
-            # =====================
-            # INSERT
-            # =====================
-
-            else:
-
-                sheet.append_row([
-
-                    generar_id(),
-
-                    r["partido_id"],
-
-                    gl,
-
-                    gv
-
-                ])
+            guardar_resultado(
+                partido_id=r["partido_id"],
+                goles_local=gl,
+                goles_visitante=gv
+            )
 
             guardados += 1
 
