@@ -9,9 +9,11 @@ from sqlalchemy import (
     Numeric
 )
 
-from sqlalchemy.orm import declarative_base
+#from sqlalchemy.orm import declarative_base
+from sqlalchemy import UniqueConstraint
+from database.postgres import Base
 
-Base = declarative_base()
+#Base = declarative_base()
 
 
 class Usuario(Base):
@@ -52,19 +54,27 @@ class Equipo(Base):
 class Prediccion(Base):
     __tablename__ = "predicciones"
 
+    __table_args__ = (
+        UniqueConstraint(
+            "usuario_id",
+            "partido_id",
+            name="uq_pred_usuario_partido"
+        ),
+    )
+
     id = Column(String, primary_key=True)
 
-    usuario_id = Column(String(50))
+    usuario_id = Column(String(50), nullable=False)
 
-    partido_id = Column(Integer)
+    partido_id = Column(Integer, nullable=False)
 
     goles_local = Column(Integer)
 
     goles_visitante = Column(Integer)
 
-    participa = Column(Boolean)
+    participa = Column(Boolean, default=False)
 
-    pago_validado = Column(Boolean)
+    pago_validado = Column(Boolean, default=False)
 
 
 class Resultado(Base):
