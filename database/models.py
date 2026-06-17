@@ -6,7 +6,8 @@ from sqlalchemy import (
     Date,
     Time,
     DateTime,
-    Numeric
+    Numeric,
+    ForeignKey
 )
 
 #from sqlalchemy.orm import declarative_base
@@ -64,9 +65,17 @@ class Prediccion(Base):
 
     id = Column(String, primary_key=True)
 
-    usuario_id = Column(String(50), nullable=False)
+    usuario_id = Column(
+        String(50),
+        ForeignKey("usuarios.usuario_id"),
+        nullable=False
+    )
 
-    partido_id = Column(Integer, nullable=False)
+    partido_id = Column(
+        Integer,
+        ForeignKey("partidos.id"),
+        nullable=False
+    )
 
     goles_local = Column(Integer)
 
@@ -82,7 +91,11 @@ class Resultado(Base):
 
     id = Column(String, primary_key=True)
 
-    partido_id = Column(Integer)
+    partido_id = Column(
+        Integer,
+        ForeignKey("partidos.id"),
+        nullable=False
+    )
 
     goles_local = Column(Integer)
 
@@ -94,7 +107,11 @@ class Movimiento(Base):
 
     id = Column(String, primary_key=True)
 
-    usuario_id = Column(String(50))
+    usuario_id = Column(
+        String(50),
+        ForeignKey("usuarios.usuario_id"),
+        nullable=False
+    )
 
     fecha = Column(DateTime)
 

@@ -11,6 +11,7 @@ from database.models import Resultado
 from database.models import Movimiento
 from utils.helpers import generar_id
 from datetime import datetime
+from database.models import Prediccion
 
 
 def obtener_config():
@@ -125,3 +126,77 @@ def guardar_movimientos(lista):
     finally:
 
         session.close()
+
+def guardar_prediccion(
+    usuario_id,
+    partido_id,
+    goles_local,
+    goles_visitante
+):
+
+    session = SessionLocal()
+
+    try:
+
+        existente = (
+            session.query(Prediccion)
+            .filter(
+                Prediccion.usuario_id == usuario_id,
+                Prediccion.partido_id == partido_id
+            )
+            .first()
+        )
+
+        if existente:
+
+            existente.goles_local = goles_local
+            existente.goles_visitante = goles_visitante
+            existente.participa = True
+            existente.pago_validado = False
+
+        else:
+
+            nueva = Prediccion(
+                id=generar_id(),
+                usuario_id=usuario_id,
+                partido_id=partido_id,
+                goles_local=goles_local,
+                goles_visitante=goles_visitante,
+                participa=True,
+                pago_validado=False
+            )
+
+            session.add(nueva)
+
+        session.commit()
+
+    finally:
+
+        session.close()
+
+def eliminar_prediccion(
+    usuario_id,
+    partido_id
+):
+
+    session = SessionLocal()
+
+    try:
+
+        filas = (
+            session.query(Prediccion)
+            .filter(
+                Prediccion.usuario_id == usuario_id,
+                Prediccion.partido_id == partido_id
+            )
+            .delete()
+        )
+
+        session.commit()
+
+        return filas > 0
+
+    finally:
+
+        session.close()
+

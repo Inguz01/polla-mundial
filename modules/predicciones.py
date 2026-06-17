@@ -10,6 +10,10 @@ from utils.config import (
     valor_apuesta_por_fase,
     porcentaje_admin
 )
+from database.queries import (
+    guardar_prediccion,
+    eliminar_prediccion
+)
 
 
 def safe_int(value):
@@ -249,7 +253,7 @@ def predicciones_page():
         if not predicciones_partido.empty:
             if "participa" in predicciones_partido.columns:
                 participantes = predicciones_partido[
-                    predicciones_partido["participa"].astype(str) == "1"
+                    predicciones_partido["participa"] == True
                 ]["usuario_id"].nunique()
             elif "usuario_id" in predicciones_partido.columns:
                 participantes = predicciones_partido["usuario_id"].nunique()
@@ -463,28 +467,32 @@ def predicciones_page():
 
     if st.button("Guardar predicciones"):
 
-        # ── Validar que todos los campos sean números válidos ──
+        # Validar marcadores
         for r in resultados:
+
             if not r["abierto"] or not r["participa"]:
                 continue
+
             for campo in [r["goles_local"], r["goles_visitante"]]:
+
                 if not campo.strip().isdigit():
-                    st.error("Solo se permiten números enteros en los marcadores")
+
+                    st.error(
+                        "Solo se permiten números enteros"
+                    )
                     st.stop()
-            gl = int(r["goles_local"].strip())
-            gv = int(r["goles_visitante"].strip())
+
+            gl = int(r["goles_local"])
+            gv = int(r["goles_visitante"])
+
             if not validar_marcador(gl, gv):
-                st.error("No puedes ingresar un marcador mayor a 20")
+
+                st.error(
+                    "No puedes ingresar un marcador mayor a 20"
+                )
                 st.stop()
 
-        db = connect()
-        pred_sheet = db.worksheet("predicciones")
-        predicciones_existentes = pred_sheet.get_all_records()
-
-        nuevas_predicciones = []
-        rows_a_actualizar   = []
-        filas_a_borrar      = []
-        guardados  = 0
+        guardados = 0
         eliminados = 0
 
         for r in resultados:
@@ -492,60 +500,49 @@ def predicciones_page():
             if not r["abierto"]:
                 continue
 
-            partido_df = df_partidos[df_partidos["id"] == r["partido_id"]]
-            if len(partido_df) == 0:
-                continue
-
-            fila_existente = None
-            for i, p in enumerate(predicciones_existentes):
-                if (str(p.get("usuario_id", "")) == str(usuario_actual)
-                        and str(p.get("partido_id", "")) == str(r["partido_id"])):
-                    fila_existente = i + 2
-                    break
-
             if r["participa"]:
-                gl = int(r["goles_local"].strip())
-                gv = int(r["goles_visitante"].strip())
 
-                if fila_existente:
-                    rows_a_actualizar.append((
-                        f"D{fila_existente}:G{fila_existente}",
-                        [[gl, gv, 1, 0]]
-                    ))
-                else:
-                    nuevas_predicciones.append([
-                        generar_id(),
-                        usuario_actual,
-                        r["partido_id"],
-                        gl,
-                        gv,
-                        1,
-                        0
-                    ])
+                guardar_prediccion(
+
+                    usuario_id=usuario_actual,
+
+                    partido_id=r["partido_id"],
+
+                    goles_local=int(r["goles_local"]),
+
+                    goles_visitante=int(r["goles_visitante"])
+
+                )
+
                 guardados += 1
 
-            elif fila_existente:
-                # recolectar filas a borrar en lugar de borrar inmediatamente
-                filas_a_borrar.append(fila_existente)
-                eliminados += 1
+            else:
 
-        if nuevas_predicciones:
-            pred_sheet.append_rows(nuevas_predicciones, value_input_option="USER_ENTERED")
+                eliminado = eliminar_prediccion(
 
-        for rango, valores in rows_a_actualizar:
-            pred_sheet.update(rango, valores)
+                    usuario_id=usuario_actual,
 
-        # borrar de mayor a menor para que el desplazamiento no afecte las filas pendientes
-        for fila in sorted(filas_a_borrar, reverse=True):
-            pred_sheet.delete_rows(fila)
+                    partido_id=r["partido_id"]
+
+                )
+                if eliminado:
+
+                    eliminados += 1
 
         cargar_todo.clear()
 
         mensajes = []
-        if guardados  > 0: mensajes.append(f"{guardados} guardadas")
-        if eliminados > 0: mensajes.append(f"{eliminados} eliminadas")
+
+        if guardados:
+            mensajes.append(f"{guardados} guardadas")
+
+        if eliminados:
+            mensajes.append(f"{eliminados} eliminadas")
 
         if mensajes:
+
             st.success(" / ".join(mensajes))
+
         else:
+
             st.info("Sin cambios")
