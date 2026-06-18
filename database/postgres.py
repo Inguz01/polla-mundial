@@ -1,13 +1,16 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
-
-from dotenv import load_dotenv
-
+import streamlit as st
 import os
 
-load_dotenv()
-
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Primero intenta leer desde Streamlit Secrets
+try:
+    DATABASE_URL = st.secrets["DATABASE_URL"]
+except Exception:
+    # Si no existe (ejecución local), usa .env
+    from dotenv import load_dotenv
+    load_dotenv()
+    DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_engine(DATABASE_URL)
 
