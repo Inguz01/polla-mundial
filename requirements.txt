@@ -8,3 +8,5 @@ google-auth-httplib2
 openpyxl
 pytz
 bcrypt
+SQLAlchemy>=2.0
+psycopg2-binary>=2.9
