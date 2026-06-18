@@ -12,7 +12,7 @@ from database.models import Movimiento
 from utils.helpers import generar_id
 from datetime import datetime
 from database.models import Prediccion
-
+from sqlalchemy import text
 from database.models import Usuario
 from utils.security import hash_password
 
@@ -39,13 +39,10 @@ def obtener_config():
         session.close()
 
 def obtener_tabla(nombre_tabla):
+    query = text(f"SELECT * FROM {nombre_tabla}")
 
-    query = f"SELECT * FROM {nombre_tabla}"
-
-    return pd.read_sql(
-        text(query),
-        engine
-    )
+    with engine.connect() as conn:
+        return pd.read_sql(query, conn)
 
 def guardar_resultado(
     partido_id,
