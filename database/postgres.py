@@ -12,7 +12,12 @@ except Exception:
     load_dotenv()
     DATABASE_URL = os.getenv("DATABASE_URL")
 
+print("SECRETS:", st.secrets)
+print("DATABASE_URL:", st.secrets.get("DATABASE_URL"))
+
 engine = create_engine(DATABASE_URL)
+
+assert st.secrets.get("DATABASE_URL") is not None
 
 SessionLocal = sessionmaker(
     autocommit=False,
