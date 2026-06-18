@@ -3,8 +3,6 @@ import pandas as pd
 from utils.validaciones import apuesta_abierta, validar_marcador
 from utils.saldos import saldo_usuario
 from utils.flags import bandera as url_bandera
-from database.google_sheets import connect
-from utils.helpers import generar_id
 from utils.data_loader import cargar_todo
 from utils.config import (
     valor_apuesta_por_fase,
@@ -49,7 +47,7 @@ def predicciones_page():
     data = cargar_todo()
 
     df_partidos = data["partidos"].copy()
-    st.write(df_partidos.dtypes)
+    #st.write(df_partidos.dtypes)
     df_partidos = df_partidos[df_partidos["estado"] == "programado"]
 
     df_pred = data["predicciones"].copy()
@@ -83,8 +81,8 @@ def predicciones_page():
     #ahora = pd.Timestamp.now(tz).tz_convert(None)
 
     ahora = pd.Timestamp.now(tz=TZ)
-    st.write("Ahora:", ahora)
-    st.write("Timezone:", ahora.tz)
+    #st.write("Ahora:", ahora)
+    #st.write("Timezone:", ahora.tz)
 
     # =========================
     # FECHA COMPLETA PARTIDO
@@ -111,14 +109,8 @@ def predicciones_page():
         .dt.tz_localize(TZ)
     )
 
-    st.write("Ahora:", ahora)
-    st.write("Timezone:", ahora.tz)
-
-    st.write(
-        df_partidos[
-            ["fecha", "hora", "fecha_hora"]
-        ].head()
-    )
+    #st.write("Ahora:", ahora)
+    #st.write("Timezone:", ahora.tz)
 
     df_partidos["horas_restantes"] = (
     df_partidos["fecha_hora"] - ahora
