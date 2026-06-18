@@ -13,6 +13,9 @@ from utils.helpers import generar_id
 from datetime import datetime
 from database.models import Prediccion
 
+from database.models import Usuario
+from utils.security import hash_password
+
 
 def obtener_config():
 
@@ -195,6 +198,89 @@ def eliminar_prediccion(
         session.commit()
 
         return filas > 0
+
+    finally:
+
+        session.close()
+
+
+def crear_usuario(usuario_id, password, rol):
+
+    session = SessionLocal()
+
+    try:
+
+        usuario_id = usuario_id.strip().lower()
+
+        existente = (
+            session.query(Usuario)
+            .filter(Usuario.usuario_id == usuario_id)
+            .first()
+        )
+
+        if existente:
+            return False, "El usuario ya existe"
+
+        nuevo = Usuario(
+            usuario_id=usuario_id,
+            password=hash_password(password),
+            rol=rol,
+            activo=True
+        )
+
+        session.add(nuevo)
+        session.commit()
+
+        return True, "Usuario creado"
+
+    finally:
+        session.close()
+
+def actualizar_estado_usuario(usuario_id, activo):
+
+    session = SessionLocal()
+
+    try:
+
+        usuario = (
+            session.query(Usuario)
+            .filter(Usuario.usuario_id == usuario_id)
+            .first()
+        )
+
+        if usuario is None:
+            return False
+
+        usuario.activo = bool(activo)
+
+        session.commit()
+
+        return True
+
+    finally:
+
+        session.close()
+
+def actualizar_password(usuario_id, nueva_password):
+
+    session = SessionLocal()
+
+    try:
+
+        usuario = (
+            session.query(Usuario)
+            .filter(Usuario.usuario_id == usuario_id)
+            .first()
+        )
+
+        if usuario is None:
+            return False
+
+        usuario.password = hash_password(nueva_password)
+
+        session.commit()
+
+        return True
 
     finally:
 

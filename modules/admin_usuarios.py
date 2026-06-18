@@ -1,9 +1,14 @@
 import streamlit as st
-import pandas as pd
-from database.google_sheets import connect
+#import pandas as pd
+#from database.google_sheets import connect
 from utils.data_loader import cargar_todo
 from utils.dataframe_utils import normalizar_columnas
-from utils.security import hash_password
+#from utils.security import hash_password
+from database.queries import (
+    crear_usuario,
+    actualizar_password,
+    actualizar_estado_usuario,
+)
 
 
 def admin_usuarios_page():
@@ -57,27 +62,23 @@ def admin_usuarios_page():
             st.error("El usuario ya existe")
             return
 
-        db = connect()
-        sheet = db.worksheet("usuarios")
-
-        # calcular nuevo ID ignorando valores no numéricos que puedan venir de Sheets
-        ids_validos = pd.to_numeric(df["id"], errors="coerce").dropna()
-        nuevo_id = int(ids_validos.max()) + 1 if len(ids_validos) > 0 else 1
-
-        sheet.append_row([
-            nuevo_id,
+        ok, mensaje = crear_usuario(
             nuevo_usuario,
-            hash_password(password),
-            rol,
-            1
-        ])
+            password,
+            rol
+        )
 
-        # Refrescar cache
-        cargar_todo.clear()
+        if ok:
 
-        st.success("Usuario creado")
-        st.rerun()
+            cargar_todo.clear()
 
+            st.success("✅ Usuario creado correctamente")
+
+            st.rerun()
+
+        else:
+
+            st.error(mensaje)
     st.divider()
 
     # =========================
@@ -103,18 +104,20 @@ def admin_usuarios_page():
 
     if st.button("Cambiar estado"):
 
-        db = connect()
-        sheet = db.worksheet("usuarios")
+        if actualizar_estado_usuario(
+            usuario_sel,
+            nuevo_estado
+        ):
 
-        fila = df[df["usuario_id"] == usuario_sel].index[0] + 2
+            cargar_todo.clear()
 
-        sheet.update(f"E{fila}", [[nuevo_estado]])
+            st.success("Estado actualizado")
 
-        # Refrescar cache
-        cargar_todo.clear()
+            st.rerun()
 
-        st.success("Estado actualizado")
-        st.rerun()
+        else:
+
+            st.error("No fue posible actualizar el estado.")
 
     st.divider()
 
@@ -152,16 +155,24 @@ def admin_usuarios_page():
 
         else:
 
-            db = connect()
-            sheet = db.worksheet("usuarios")
+            if actualizar_password(
+                usuario_pwd,
+                nueva_pwd
+            ):
 
-            fila = df[df["usuario_id"] == usuario_pwd].index[0] + 2
+                cargar_todo.clear()
 
-            sheet.update(f"C{fila}", [[hash_password(nueva_pwd)]])
+                st.success(
+                    f"Contraseña de {usuario_pwd} actualizada correctamente"
+                )
 
-            cargar_todo.clear()
+                st.rerun()
 
-            st.success(f"Contraseña de {usuario_pwd} actualizada correctamente")
+            else:
+
+                st.error(
+                    "No fue posible actualizar la contraseña."
+                )
 
     st.divider()
 

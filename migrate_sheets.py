@@ -73,15 +73,15 @@ def migrar_hoja(nombre_hoja, nombre_tabla):
 
     print(f"OK -> {nombre_tabla}")
 
-migrar_hoja("usuarios", "usuarios")
+#migrar_hoja("usuarios", "usuarios")
 
-migrar_hoja("partidos", "partidos")
+#migrar_hoja("partidos", "partidos")
 
-migrar_hoja("equipos", "equipos")
+#migrar_hoja("equipos", "equipos")
 
-migrar_hoja("predicciones", "predicciones")
+#migrar_hoja("predicciones", "predicciones")
 
-migrar_hoja("resultados", "resultados")
+#migrar_hoja("resultados", "resultados")
 
 migrar_hoja("movimientos", "movimientos")
 

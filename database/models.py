@@ -20,7 +20,7 @@ from database.postgres import Base
 class Usuario(Base):
     __tablename__ = "usuarios"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     usuario_id = Column(String(50), unique=True)
     password = Column(String)
     rol = Column(String(20))
